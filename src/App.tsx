@@ -15,6 +15,8 @@ import { CommunityProvider, useCommunity } from './context/CommunityContext';
 import { ToastContainer } from './components/modals/ToastContainer';
 import { AuthModal } from './components/modals/AuthModal';
 import { LocationPermissionModal } from './components/modals/LocationPermissionModal';
+import { MediaViewerModal } from './components/modals/MediaViewerModal';
+import { ContactAdminModal } from './components/modals/ContactAdminModal';
 import { Bot, Sparkles } from 'lucide-react';
 
 function AppContent() {
@@ -22,7 +24,11 @@ function AppContent() {
     activeTab, 
     setActiveTab, 
     isLocationPermissionModalOpen, 
-    closeLocationPermissionModal 
+    closeLocationPermissionModal,
+    activeMedia,
+    closeMediaViewer,
+    isContactAdminModalOpen,
+    closeContactAdminModal
   } = useCommunity();
   const { isBroadcastVisible, activeBroadcast } = useBroadcast();
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -88,6 +94,18 @@ function AppContent() {
       <LocationPermissionModal 
         isOpen={isLocationPermissionModalOpen}
         onClose={closeLocationPermissionModal}
+      />
+
+      {/* Global Fullscreen Media Viewer (Image & Video) */}
+      <MediaViewerModal 
+        media={activeMedia}
+        onClose={closeMediaViewer}
+      />
+
+      {/* Contact Admin & PR Request Modal */}
+      <ContactAdminModal
+        isOpen={isContactAdminModalOpen}
+        onClose={closeContactAdminModal}
       />
       
     </div>

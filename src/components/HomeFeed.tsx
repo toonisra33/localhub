@@ -24,7 +24,10 @@ import {
   CheckCircle2,
   UserPlus,
   User,
-  BarChart3
+  BarChart3,
+  Megaphone,
+  ChevronRight,
+  Send
 } from 'lucide-react';
 import { mockMorningBrief } from '../data';
 import { Alert } from '../types';
@@ -52,7 +55,8 @@ export function HomeFeed() {
     setActiveTab, 
     unreadNotificationsCount, 
     showToast,
-    openLocationPermissionModal
+    openLocationPermissionModal,
+    openContactAdminModal
   } = useCommunity();
 
   // Modals state
@@ -67,6 +71,13 @@ export function HomeFeed() {
   const [alertFilter, setAlertFilter] = useState<'all' | 'flood' | 'road' | 'power'>('all');
 
   const quickMenus = [
+    { 
+      icon: Megaphone, 
+      label: 'ติดต่อแอดมิน', 
+      color: 'bg-indigo-500/10 text-indigo-600', 
+      border: 'border-indigo-200/50', 
+      onClick: () => openContactAdminModal('pr_request') 
+    },
     { 
       icon: AlertTriangle, 
       label: 'แจ้งเหตุ', 
@@ -133,6 +144,16 @@ export function HomeFeed() {
           <LocalHubLogo size="sm" variant="light" showSubtitle={true} />
           
           <div className="flex items-center gap-2">
+            {/* Contact Admin & Request PR Button */}
+            <button
+              onClick={() => openContactAdminModal('pr_request')}
+              className="h-8 px-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-indigo-100 hover:text-white rounded-xl flex items-center gap-1 transition-all border border-indigo-500/40 shadow-sm text-[11px] font-extrabold active:scale-95"
+              title="ส่งข้อความติดต่อแอดมิน / ขอประชาสัมพันธ์"
+            >
+              <Megaphone size={13} className="text-indigo-200" />
+              <span>ติดต่อแอดมิน</span>
+            </button>
+
             {/* Admin Broadcast Quick Action (Admin Only) */}
             {role === 'admin' && (
               <button
@@ -351,6 +372,46 @@ export function HomeFeed() {
         </div>
       </div>
 
+      {/* Interactive PR & Contact Admin Banner Card */}
+      <div className="px-5 mt-6">
+        <div 
+          onClick={() => openContactAdminModal('pr_request')}
+          className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-4.5 shadow-lg shadow-indigo-950/20 border border-indigo-500/25 relative overflow-hidden cursor-pointer group hover:border-indigo-400/50 transition-all active:scale-[0.99]"
+        >
+          <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-indigo-500/25 to-transparent rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex items-center justify-between gap-3 relative z-10">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-600/30 text-indigo-300 border border-indigo-400/30 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                <Megaphone size={22} className="text-indigo-200" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-extrabold bg-indigo-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    ฟรีสำหรับลูกบ้าน
+                  </span>
+                  <span className="text-[11px] text-indigo-300 font-semibold">ศูนย์สื่อสารชุมชน</span>
+                </div>
+                <h3 className="text-[14px] font-extrabold text-white leading-snug group-hover:text-indigo-200 transition-colors">
+                  มีข่าวสาร กิจกรรม หรืออยากขอประชาสัมพันธ์?
+                </h3>
+                <p className="text-[11.5px] text-slate-300 mt-0.5 line-clamp-1">
+                  ส่งเรื่องให้แอดมินช่วยกระจายข่าวสาร หรือแจ้งเบาะแสในพื้นที่ได้ตลอด 24 ชม.
+                </p>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              className="px-3 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 group-hover:from-indigo-400 group-hover:to-indigo-500 text-white text-[12px] font-extrabold rounded-2xl shrink-0 shadow-md flex items-center gap-1 transition-all"
+            >
+              <span>ส่งเรื่อง</span>
+              <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Local Alerts */}
       <div className="px-5 mt-8">
         <div className="flex items-center justify-between mb-4">
@@ -429,6 +490,7 @@ const AlertCard: React.FC<AlertCardProps> = ({
   onVote, 
   onCameraClick 
 }) => {
+  const { openMediaViewer } = useCommunity();
   const getStatusConfig = (status: Alert['status']) => {
     switch(status) {
       case 'unconfirmed': return { icon: AlertTriangle, color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200/80', text: 'ยังไม่ยืนยัน' };
@@ -465,8 +527,21 @@ const AlertCard: React.FC<AlertCardProps> = ({
         <p className="text-[13.5px] text-slate-600 mb-3 line-clamp-2 leading-relaxed font-normal">{alert.description}</p>
         
         {alert.image && (
-          <div className="mb-3.5 rounded-2xl overflow-hidden max-h-44 border border-slate-150 bg-slate-900">
-            <img src={alert.image} alt={alert.title} className="w-full h-44 object-cover hover:scale-105 transition-transform" />
+          <div 
+            onClick={() => openMediaViewer({
+              url: alert.image!,
+              type: 'image',
+              title: alert.title,
+              subtitle: `จุดเกิดเหตุ: ${alert.location.district} (${alert.time})`
+            })}
+            className="mb-3.5 rounded-2xl overflow-hidden max-h-44 border border-slate-150 bg-slate-900 cursor-pointer relative group"
+          >
+            <img src={alert.image} alt={alert.title} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
+            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+                แตะเพื่อดูภาพเต็มจอ
+              </span>
+            </div>
           </div>
         )}
 

@@ -8,7 +8,7 @@ interface IncidentReportModalProps {
 }
 
 export function IncidentReportModal({ onClose }: IncidentReportModalProps) {
-  const { location, addAlert, showToast, openLocationPermissionModal } = useCommunity();
+  const { location, addAlert, showToast, openLocationPermissionModal, openMediaViewer } = useCommunity();
   const [type, setType] = useState<Alert['type']>('flood');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -185,15 +185,36 @@ export function IncidentReportModal({ onClose }: IncidentReportModalProps) {
           <div>
             <label className="block text-[12px] font-bold text-slate-700 mb-1.5">ภาพถ่ายประกอบ</label>
             {imageUrl ? (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-40 bg-slate-900">
-                <img src={imageUrl} alt="Incident preview" className="w-full h-40 object-cover" />
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-40 bg-slate-900 group">
+                <img 
+                  src={imageUrl} 
+                  alt="Incident preview" 
+                  onClick={() => openMediaViewer({
+                    url: imageUrl,
+                    type: 'image',
+                    title: title || 'ภาพถ่ายเหตุการณ์',
+                    subtitle: `ประเภท: ${incidentTypes.find(t => t.id === type)?.label}`
+                  })}
+                  className="w-full h-40 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
+                />
                 <button
                   type="button"
                   onClick={() => setImageUrl('')}
-                  className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors"
+                  className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-10"
                 >
                   <X size={14} />
                 </button>
+                <div 
+                  onClick={() => openMediaViewer({
+                    url: imageUrl,
+                    type: 'image',
+                    title: title || 'ภาพถ่ายเหตุการณ์',
+                    subtitle: `ประเภท: ${incidentTypes.find(t => t.id === type)?.label}`
+                  })}
+                  className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg border border-white/20 cursor-pointer pointer-events-none"
+                >
+                  แตะเพื่อดูรูปเต็มจอ
+                </div>
               </div>
             ) : (
               <button

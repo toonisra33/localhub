@@ -7,7 +7,10 @@ import {
   AppNotification, 
   LocalEvent, 
   Tab,
-  UserProfileData
+  UserProfileData,
+  AdminContactRequest,
+  ContactRequestType,
+  ContactRequestStatus
 } from '../types';
 import { 
   initialAlerts, 
@@ -15,6 +18,7 @@ import {
   initialProducts, 
   initialLocation, 
   initialNotifications, 
+  initialContactRequests,
   mockEvents, 
   availableLocations 
 } from '../data';
@@ -98,6 +102,21 @@ interface CommunityContextType {
   activeModal: string | null;
   openModal: (modalName: string) => void;
   closeModal: () => void;
+
+  // Global Fullscreen Media Viewer
+  activeMedia: { url: string; type: 'image' | 'video'; title?: string; subtitle?: string } | null;
+  openMediaViewer: (media: { url: string; type?: 'image' | 'video'; title?: string; subtitle?: string }) => void;
+  closeMediaViewer: () => void;
+
+  // Contact Admin & PR Requests
+  contactRequests: AdminContactRequest[];
+  isContactAdminModalOpen: boolean;
+  contactAdminInitialType: ContactRequestType | undefined;
+  openContactAdminModal: (defaultType?: ContactRequestType) => void;
+  closeContactAdminModal: () => void;
+  submitContactRequest: (data: Omit<AdminContactRequest, 'id' | 'createdAt' | 'timeStr' | 'status'>) => void;
+  updateContactRequestStatus: (id: string, status: ContactRequestStatus, adminNote?: string) => void;
+  deleteContactRequest: (id: string) => void;
 }
 
 const CommunityContext = createContext<CommunityContextType | undefined>(undefined);
@@ -209,6 +228,84 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const [isLocationPermissionModalOpen, setIsLocationPermissionModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastInfo[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'image' | 'video'; title?: string; subtitle?: string } | null>(null);
+
+  // Contact Admin & PR Requests State
+  const [contactRequests, setContactRequests] = useState<AdminContactRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem('locallink_contact_requests');
+      return saved ? JSON.parse(saved) : initialContactRequests;
+    } catch {
+      return initialContactRequests;
+    }
+  });
+  const [isContactAdminModalOpen, setIsContactAdminModalOpen] = useState(false);
+  const [contactAdminInitialType, setContactAdminInitialType] = useState<ContactRequestType | undefined>(undefined);
+
+  const openContactAdminModal = (defaultType?: ContactRequestType) => {
+    setContactAdminInitialType(defaultType);
+    setIsContactAdminModalOpen(true);
+  };
+
+  const closeContactAdminModal = () => {
+    setIsContactAdminModalOpen(false);
+    setContactAdminInitialType(undefined);
+  };
+
+  const submitContactRequest = (data: Omit<AdminContactRequest, 'id' | 'createdAt' | 'timeStr' | 'status'>) => {
+    const newRequest: AdminContactRequest = {
+      ...data,
+      id: `req_${Date.now()}`,
+      createdAt: Date.now(),
+      timeStr: 'เมื่อสักครู่',
+      status: 'pending'
+    };
+
+    setContactRequests(prev => [newRequest, ...prev]);
+
+    // Also add an AppNotification for the resident
+    const newNotification: AppNotification = {
+      id: `n_contact_${Date.now()}`,
+      title: '📨 ส่งเรื่องถึงแอดมินเรียบร้อยแล้ว',
+      message: `แอดมินได้รับเรื่อง "${data.title}" แล้ว อยู่ระหว่างการตรวจสอบข้อมูลเพื่อดำเนินการ`,
+      time: 'เมื่อสักครู่',
+      read: false,
+      type: 'broadcast'
+    };
+    setNotifications(prev => [newNotification, ...prev]);
+
+    showToast('📨 ส่งข้อความถึงแอดมินเรียบร้อยแล้ว! แอดมินจะตรวจสอบและดำเนินการให้โดยเร็ว', 'success');
+  };
+
+  const updateContactRequestStatus = (id: string, status: ContactRequestStatus, adminNote?: string) => {
+    setContactRequests(prev => prev.map(req => {
+      if (req.id !== id) return req;
+      return {
+        ...req,
+        status,
+        adminNote: adminNote !== undefined ? adminNote : req.adminNote
+      };
+    }));
+    showToast('อัปเดตสถานะเรื่องติดต่อเรียบร้อยแล้ว', 'info');
+  };
+
+  const deleteContactRequest = (id: string) => {
+    setContactRequests(prev => prev.filter(req => req.id !== id));
+    showToast('ลบรายการคำขอติดต่อเรียบร้อยแล้ว', 'info');
+  };
+
+  const openMediaViewer = (media: { url: string; type?: 'image' | 'video'; title?: string; subtitle?: string }) => {
+    setActiveMedia({
+      url: media.url,
+      type: media.type || (media.url.includes('.mp4') || media.url.includes('.webm') ? 'video' : 'image'),
+      title: media.title,
+      subtitle: media.subtitle
+    });
+  };
+
+  const closeMediaViewer = () => {
+    setActiveMedia(null);
+  };
 
   const openLocationPermissionModal = () => setIsLocationPermissionModalOpen(true);
   const closeLocationPermissionModal = () => setIsLocationPermissionModalOpen(false);
@@ -378,6 +475,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try { localStorage.setItem('locallink_notifications', JSON.stringify(notifications)); } catch {}
   }, [notifications]);
+
+  useEffect(() => {
+    try { localStorage.setItem('locallink_contact_requests', JSON.stringify(contactRequests)); } catch {}
+  }, [contactRequests]);
 
   useEffect(() => {
     try { localStorage.setItem('locallink_profile', JSON.stringify(userProfile)); } catch {}
@@ -758,7 +859,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         removeToast,
         activeModal,
         openModal,
-        closeModal
+        closeModal,
+        activeMedia,
+        openMediaViewer,
+        closeMediaViewer,
+        contactRequests,
+        isContactAdminModalOpen,
+        contactAdminInitialType,
+        openContactAdminModal,
+        closeContactAdminModal,
+        submitContactRequest,
+        updateContactRequestStatus,
+        deleteContactRequest
       }}
     >
       {children}

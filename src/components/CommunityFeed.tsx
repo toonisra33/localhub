@@ -19,9 +19,10 @@ import { useCommunity } from '../context/CommunityContext';
 import { CreatePostModal } from './modals/CreatePostModal';
 import { PostDetailCommentsModal } from './modals/PostDetailCommentsModal';
 import { LocalHubLogo } from './LocalHubLogo';
+import { Megaphone } from 'lucide-react';
 
 export function CommunityFeed() {
-  const { posts, toggleLikePost, deletePost, userProfile, showToast } = useCommunity();
+  const { posts, toggleLikePost, deletePost, userProfile, showToast, openContactAdminModal } = useCommunity();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('ทั้งหมด');
@@ -46,10 +47,22 @@ export function CommunityFeed() {
       <div className="bg-white/90 backdrop-blur-xl px-5 pt-7 pb-4 border-b border-slate-200/70 sticky top-0 z-30 shadow-sm">
         <div className="flex items-center justify-between mb-3.5">
           <LocalHubLogo size="sm" variant="dark" showSubtitle={false} />
-          <span className="bg-emerald-50 text-emerald-700 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            ชุมชนสด
-          </span>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openContactAdminModal('pr_request')}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-extrabold px-2.5 py-1 rounded-xl border border-indigo-200/80 flex items-center gap-1.5 transition-colors shadow-xs"
+              title="ส่งเรื่องขอประชาสัมพันธ์หรือแจ้งข่าวถึงแอดมิน"
+            >
+              <Megaphone size={12} className="text-indigo-600" />
+              <span>ขอประชาสัมพันธ์</span>
+            </button>
+
+            <span className="bg-emerald-50 text-emerald-700 text-[11px] font-extrabold px-2.5 py-1 rounded-xl border border-emerald-100 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              ชุมชนสด
+            </span>
+          </div>
         </div>
         
         {/* Create Post Input Bar */}
@@ -143,7 +156,7 @@ const PostCard: React.FC<PostCardProps> = ({
   onOpenComments, 
   onDelete 
 }) => {
-  const { showToast } = useCommunity();
+  const { showToast, openMediaViewer } = useCommunity();
   const [showMenu, setShowMenu] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -229,13 +242,25 @@ const PostCard: React.FC<PostCardProps> = ({
 
       {/* Image Attachment (if any) */}
       {post.image && (
-        <div className="mb-4 rounded-2xl overflow-hidden border border-slate-150 bg-slate-900 max-h-72">
+        <div 
+          onClick={() => openMediaViewer({
+            url: post.image!,
+            type: 'image',
+            title: `โพสต์โดย ${post.author.name}`,
+            subtitle: `ต.${post.location.subdistrict} • ${post.time}`
+          })}
+          className="mb-4 rounded-2xl overflow-hidden border border-slate-150 bg-slate-900 max-h-72 cursor-pointer relative group"
+        >
           <img 
             src={post.image} 
             alt="ภาพประกอบโพสต์" 
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer" 
-            onClick={onOpenComments}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
           />
+          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+              แตะเพื่อดูภาพเต็มจอ
+            </span>
+          </div>
         </div>
       )}
 

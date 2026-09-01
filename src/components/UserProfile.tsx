@@ -25,7 +25,8 @@ import {
   Mail,
   BarChart3,
   TrendingUp,
-  LayoutDashboard
+  LayoutDashboard,
+  Megaphone
 } from 'lucide-react';
 import { useBroadcast } from '../context/BroadcastContext';
 import { useCommunity } from '../context/CommunityContext';
@@ -53,8 +54,10 @@ export function UserProfile() {
     posts, 
     products, 
     alerts, 
+    contactRequests,
     setActiveTab, 
     openAuthModal,
+    openContactAdminModal,
     logout,
     showToast 
   } = useCommunity();
@@ -68,6 +71,14 @@ export function UserProfile() {
   const myProductsCount = products.filter(p => p.seller === userProfile.name).length;
 
   const menuItems = [
+    { 
+      icon: Megaphone, 
+      label: 'ติดต่อแอดมิน / ขอประชาสัมพันธ์', 
+      count: contactRequests.length, 
+      onClick: () => {
+        openContactAdminModal('pr_request');
+      }
+    },
     { 
       icon: FileText, 
       label: 'โพสต์ของฉัน', 

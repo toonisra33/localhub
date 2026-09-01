@@ -9,7 +9,7 @@ interface ProductDetailModalProps {
 }
 
 export function ProductDetailModal({ product, onClose }: ProductDetailModalProps) {
-  const { showToast } = useCommunity();
+  const { showToast, openMediaViewer } = useCommunity();
   const [isCopied, setIsCopied] = useState(false);
 
   const handleShare = () => {
@@ -54,12 +54,25 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
         {/* Scrollable Content */}
         <div className="p-4 overflow-y-auto space-y-4 flex-1">
           
-          <div className="rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200 shadow-sm">
+          <div 
+            onClick={() => openMediaViewer({
+              url: product.image,
+              type: 'image',
+              title: product.title,
+              subtitle: `ราคา ฿${product.price.toLocaleString()} • ผู้ขาย: ${product.seller}`
+            })}
+            className="rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200 shadow-sm cursor-pointer relative group"
+          >
             <img
               src={product.image}
               alt={product.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
+            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+                แตะเพื่อดูภาพเต็มจอ
+              </span>
+            </div>
           </div>
 
           <div>

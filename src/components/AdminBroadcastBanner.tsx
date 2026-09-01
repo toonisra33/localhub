@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useBroadcast } from '../context/BroadcastContext';
+import { useCommunity } from '../context/CommunityContext';
 import { 
   Radio, 
   AlertTriangle, 
@@ -17,7 +18,8 @@ import {
   Megaphone,
   Image as ImageIcon,
   Video as VideoIcon,
-  Play
+  Play,
+  Maximize2
 } from 'lucide-react';
 
 export function AdminBroadcastBanner() {
@@ -28,6 +30,7 @@ export function AdminBroadcastBanner() {
     role, 
     setOpenAdminModal 
   } = useBroadcast();
+  const { openMediaViewer } = useCommunity();
   
   const [isExpanded, setIsExpanded] = useState(false);
   const isLeaving = deviceRemainingSeconds <= 1;
@@ -240,15 +243,29 @@ export function AdminBroadcastBanner() {
                 
                 {/* Attached Media Player / Viewer */}
                 {activeBroadcast.mediaType === 'image' && activeBroadcast.mediaUrl && (
-                  <div className="rounded-2xl overflow-hidden border border-white/20 shadow-md max-h-56 bg-black/40 relative">
+                  <div 
+                    onClick={() => openMediaViewer({
+                      url: activeBroadcast.mediaUrl!,
+                      type: 'image',
+                      title: activeBroadcast.title,
+                      subtitle: `บรอดแคสจาก: ${activeBroadcast.adminName}`
+                    })}
+                    className="rounded-2xl overflow-hidden border border-white/20 shadow-md max-h-56 bg-black/40 relative cursor-pointer group"
+                  >
                     <img 
                       src={activeBroadcast.mediaUrl} 
                       alt={activeBroadcast.title} 
-                      className="w-full h-52 object-cover"
+                      className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300"
                     />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-xl text-white text-[12px] font-bold flex items-center gap-1.5">
+                        <Maximize2 size={14} className="text-emerald-400" />
+                        <span>กดเพื่อดูภาพเต็มจอ</span>
+                      </div>
+                    </div>
                     <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[11px] text-white flex items-center gap-1.5">
                       <ImageIcon size={12} className="text-purple-300" />
-                      <span>ภาพประกอบข้อมูล</span>
+                      <span>ภาพประกอบข้อมูล (แตะเพื่อขยาย)</span>
                     </div>
                   </div>
                 )}
@@ -264,13 +281,27 @@ export function AdminBroadcastBanner() {
                     <div className="bg-black/80 px-3 py-1.5 text-[11px] text-white/90 flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <VideoIcon size={13} className="text-sky-400" />
-                        <span>วิดีโอแนะนำข้อมูล (ความยาวไม่เกิน 10 นาที)</span>
+                        <span>วิดีโอแนะนำข้อมูล</span>
                       </div>
-                      {activeBroadcast.videoDurationSeconds ? (
-                        <span className="text-sky-300 font-bold">
-                          ⏱️ {Math.floor(activeBroadcast.videoDurationSeconds / 60)}:{String(activeBroadcast.videoDurationSeconds % 60).padStart(2, '0')} น.
-                        </span>
-                      ) : null}
+                      <div className="flex items-center gap-2">
+                        {activeBroadcast.videoDurationSeconds ? (
+                          <span className="text-sky-300 font-bold">
+                            ⏱️ {Math.floor(activeBroadcast.videoDurationSeconds / 60)}:{String(activeBroadcast.videoDurationSeconds % 60).padStart(2, '0')} น.
+                          </span>
+                        ) : null}
+                        <button
+                          onClick={() => openMediaViewer({
+                            url: activeBroadcast.mediaUrl!,
+                            type: 'video',
+                            title: activeBroadcast.title,
+                            subtitle: `วิดีโอบรอดแคสจาก: ${activeBroadcast.adminName}`
+                          })}
+                          className="px-2 py-0.5 rounded-lg bg-sky-500/30 hover:bg-sky-500/50 text-sky-200 text-[10.5px] font-extrabold flex items-center gap-1 transition-colors"
+                        >
+                          <Maximize2 size={11} />
+                          <span>ดูเต็มจอ</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

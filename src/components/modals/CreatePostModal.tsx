@@ -7,7 +7,7 @@ interface CreatePostModalProps {
 }
 
 export function CreatePostModal({ onClose }: CreatePostModalProps) {
-  const { location, addPost, showToast, userProfile } = useCommunity();
+  const { location, addPost, showToast, userProfile, openMediaViewer } = useCommunity();
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('ข่าวสารชุมชน');
   const [imageUrl, setImageUrl] = useState('');
@@ -110,15 +110,36 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
 
           {/* Image Preview / Attachment */}
           {imageUrl ? (
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-48 bg-slate-900">
-              <img src={imageUrl} alt="Post image" className="w-full h-48 object-cover" />
+            <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-48 bg-slate-900 group">
+              <img 
+                src={imageUrl} 
+                alt="Post image" 
+                onClick={() => openMediaViewer({
+                  url: imageUrl,
+                  type: 'image',
+                  title: 'รูปภาพที่แนบ',
+                  subtitle: `หมวดหมู่: ${category}`
+                })}
+                className="w-full h-48 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
+              />
               <button
                 type="button"
                 onClick={() => setImageUrl('')}
-                className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors"
+                className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-10"
               >
                 <X size={14} />
               </button>
+              <div 
+                onClick={() => openMediaViewer({
+                  url: imageUrl,
+                  type: 'image',
+                  title: 'รูปภาพที่แนบ',
+                  subtitle: `หมวดหมู่: ${category}`
+                })}
+                className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg border border-white/20 cursor-pointer pointer-events-none"
+              >
+                แตะเพื่อดูรูปเต็มจอ
+              </div>
             </div>
           ) : (
             <button

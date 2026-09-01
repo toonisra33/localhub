@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useBroadcast } from '../context/BroadcastContext';
-import { BroadcastCategory, BroadcastSeverity } from '../types';
+import { useCommunity } from '../context/CommunityContext';
+import { BroadcastCategory, BroadcastSeverity, AdminContactRequest } from '../types';
 import { 
   Radio, 
   X, 
@@ -25,7 +26,12 @@ import {
   Upload,
   Sparkles,
   AlertCircle,
-  Play
+  Play,
+  Inbox,
+  User,
+  Phone,
+  Check,
+  Maximize2
 } from 'lucide-react';
 
 export function AdminBroadcastModal() {
@@ -39,6 +45,15 @@ export function AdminBroadcastModal() {
     resetDeviceTimerForDemo,
     deviceRemainingSeconds
   } = useBroadcast();
+
+  const { 
+    contactRequests, 
+    updateContactRequestStatus, 
+    openMediaViewer, 
+    showToast 
+  } = useCommunity();
+
+  const [adminTab, setAdminTab] = useState<'create' | 'requests'>('create');
 
   // Template presets for realistic quick testing across all categories (Marketing, News, Emergency)
   const presets = [
@@ -133,6 +148,37 @@ export function AdminBroadcastModal() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!openAdminModal) return null;
+
+  const handleConvertRequestToBroadcast = (req: AdminContactRequest) => {
+    setTitle(req.title);
+    setMessage(req.detail);
+    if (req.type === 'pr_request') {
+      setCategory('marketing');
+      setSeverity('special');
+    } else if (req.type === 'urgent_tip') {
+      setCategory('emergency');
+      setSeverity('urgent');
+    } else {
+      setCategory('news');
+      setSeverity('normal');
+    }
+    setTargetArea(req.targetArea || 'ชุมชนทั่วไป');
+    setContactNumber(req.senderPhone || '');
+    if (req.mediaUrl) {
+      setSelectedMediaType(req.mediaType || 'image');
+      setMediaUrl(req.mediaUrl);
+      setMediaFileName('resident_media_attachment');
+      setVideoDuration(0);
+    } else {
+      setSelectedMediaType('none');
+      setMediaUrl('');
+      setMediaFileName('');
+      setVideoDuration(0);
+    }
+    updateContactRequestStatus(req.id, 'approved_and_broadcast', 'แอดมินนำข้อมูลไปจัดทำบรอดแคสต์แจ้งเตือนลูกบ้านเรียบร้อยแล้ว');
+    setAdminTab('create');
+    showToast('✨ นำข้อมูลจากลูกบ้านมาใส่ในฟอร์มบรอดแคสต์แล้ว พร้อมตรวจสอบและกดส่ง');
+  };
 
   const handleApplyPreset = (p: typeof presets[0]) => {
     setTitle(p.title);
@@ -366,8 +412,157 @@ export function AdminBroadcastModal() {
             </div>
           )}
 
-          {/* Form to create a new broadcast */}
-          <form onSubmit={handleSend} className="space-y-4">
+          {/* Sub Tabs: Create vs Resident Requests */}
+          <div className="flex items-center bg-gray-200/80 p-1 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => setAdminTab('create')}
+              className={`flex-1 py-2 rounded-xl text-[12.5px] font-extrabold flex items-center justify-center gap-2 transition-all ${
+                adminTab === 'create'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Radio size={14} className={adminTab === 'create' ? 'text-red-600' : ''} />
+              <span>สร้างบรอดแคสต์ใหม่</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAdminTab('requests')}
+              className={`flex-1 py-2 rounded-xl text-[12.5px] font-extrabold flex items-center justify-center gap-2 transition-all relative ${
+                adminTab === 'requests'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Inbox size={14} className={adminTab === 'requests' ? 'text-indigo-600' : ''} />
+              <span>ข้อความจากลูกบ้าน</span>
+              {contactRequests.length > 0 && (
+                <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                  {contactRequests.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {adminTab === 'requests' ? (
+            /* Resident PR Requests Tab */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-[14px] text-gray-900">คำขอประชาสัมพันธ์และแจ้งข่าว</h4>
+                  <p className="text-[11.5px] text-gray-500">ลูกบ้านส่งเรื่องขอให้แอดมินช่วยกระจายข่าวสาร</p>
+                </div>
+                <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-xl">
+                  ทั้งหมด {contactRequests.length} รายการ
+                </span>
+              </div>
+
+              {contactRequests.length === 0 ? (
+                <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
+                  <Inbox size={32} className="text-gray-300 mx-auto mb-2" />
+                  <p className="font-bold text-gray-600 text-[13px]">ยังไม่มีคำขอจากลูกบ้านในขณะนี้</p>
+                  <p className="text-[11.5px] text-gray-400 mt-0.5">เมื่อลูกบ้านกดปุ่มติดต่อแอดมิน รายการจะแสดงที่นี่</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {contactRequests.map((req) => (
+                    <div 
+                      key={req.id} 
+                      className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm space-y-3 hover:border-indigo-300 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              {req.type === 'pr_request' ? '📢 ขอประชาสัมพันธ์' :
+                               req.type === 'news_report' ? '📰 แจ้งข่าวด่วน' :
+                               req.type === 'urgent_tip' ? '🚨 แจ้งจุดเสี่ยง' :
+                               req.type === 'special_help' ? '🤝 ขอความช่วยเหลือ' : '💬 ข้อเสนอแนะ'}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              req.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                              req.status === 'approved_and_broadcast' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                              'bg-blue-50 text-blue-700 border border-blue-200'
+                            }`}>
+                              {req.status === 'pending' ? '🟡 รอตรวจสอบ' :
+                               req.status === 'approved_and_broadcast' ? '🟢 ออกบรอดแคสต์แล้ว' : '🔵 รับเรื่องแล้ว'}
+                            </span>
+                            <span className="text-[10px] text-gray-400">{req.timeStr}</span>
+                          </div>
+
+                          <h5 className="font-extrabold text-[13.5px] text-gray-900 leading-snug">{req.title}</h5>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-[12.5px] text-gray-700 leading-relaxed">
+                        {req.detail}
+                      </div>
+
+                      {/* Media if attached */}
+                      {req.mediaUrl && (
+                        <div 
+                          onClick={() => openMediaViewer({
+                            url: req.mediaUrl!,
+                            type: req.mediaType || 'image',
+                            title: req.title,
+                            subtitle: `ส่งโดย: ${req.senderName}`
+                          })}
+                          className="relative rounded-xl overflow-hidden max-h-32 bg-gray-900 border border-gray-200 cursor-pointer group"
+                        >
+                          <img src={req.mediaUrl} alt={req.title} className="w-full h-32 object-cover group-hover:scale-105 transition-transform" />
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <span className="bg-black/75 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+                              <Maximize2 size={11} /> แตะดูภาพเต็มจอ
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sender Info & Area */}
+                      <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-100 flex-wrap gap-2">
+                        <span className="flex items-center gap-1">
+                          <User size={12} className="text-gray-400" />
+                          <strong>{req.senderName}</strong>
+                        </span>
+                        <a href={`tel:${req.senderPhone}`} className="flex items-center gap-1 text-emerald-600 font-bold hover:underline">
+                          <Phone size={12} />
+                          <span>{req.senderPhone}</span>
+                        </a>
+                        <span>📍 {req.targetArea || 'ชุมชนทั่วไป'}</span>
+                      </div>
+
+                      {/* Action to 1-Click Convert to Broadcast */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => handleConvertRequestToBroadcast(req)}
+                          className="flex-1 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-[12px] font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-red-500/20 transition-all"
+                        >
+                          <Radio size={13} className="animate-pulse" />
+                          <span>⚡ นำไปออกบรอดแคสต์ทันที</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateContactRequestStatus(req.id, 'reviewed', 'แอดมินรับเรื่องเรียบร้อยแล้ว');
+                            showToast('บันทึกสถานะรับเรื่องแล้ว');
+                          }}
+                          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[11px] font-bold transition-colors"
+                        >
+                          รับเรื่อง
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Form to create a new broadcast */
+            <form onSubmit={handleSend} className="space-y-4">
             
             {/* Quick Presets across Marketing, News, Emergency */}
             <div>
@@ -849,6 +1044,7 @@ export function AdminBroadcastModal() {
               </button>
             </div>
           </form>
+          )}
 
         </div>
       </div>

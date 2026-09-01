@@ -8,7 +8,7 @@ interface FoodGuideModalProps {
 }
 
 export function FoodGuideModal({ onClose }: FoodGuideModalProps) {
-  const { showToast } = useCommunity();
+  const { showToast, openMediaViewer } = useCommunity();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('ทั้งหมด');
 
@@ -122,11 +122,24 @@ export function FoodGuideModal({ onClose }: FoodGuideModalProps) {
                 className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col gap-3"
               >
                 <div className="flex gap-3">
-                  <img
-                    src={place.image}
-                    alt={place.name}
-                    className="w-20 h-20 rounded-xl object-cover ring-1 ring-slate-100 shrink-0"
-                  />
+                  <div 
+                    onClick={() => openMediaViewer({
+                      url: place.image,
+                      type: 'image',
+                      title: place.name,
+                      subtitle: `${place.category} • ให้บริการ: ${place.openHours}`
+                    })}
+                    className="relative w-20 h-20 rounded-xl overflow-hidden ring-1 ring-slate-150 shrink-0 cursor-pointer group"
+                  >
+                    <img
+                      src={place.image}
+                      alt={place.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <span className="text-white text-[9px] font-bold">ขยาย</span>
+                    </div>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <span className="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100 truncate">

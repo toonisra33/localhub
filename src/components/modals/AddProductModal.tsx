@@ -7,7 +7,7 @@ interface AddProductModalProps {
 }
 
 export function AddProductModal({ onClose }: AddProductModalProps) {
-  const { addProduct, showToast, location } = useCommunity();
+  const { addProduct, showToast, location, openMediaViewer } = useCommunity();
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('ของมือสอง');
@@ -159,15 +159,36 @@ export function AddProductModal({ onClose }: AddProductModalProps) {
           <div>
             <label className="block text-[12px] font-bold text-slate-700 mb-1">รูปถ่ายสินค้า</label>
             {imageUrl ? (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-40 bg-slate-900">
-                <img src={imageUrl} alt="Product preview" className="w-full h-40 object-cover" />
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-40 bg-slate-900 group">
+                <img 
+                  src={imageUrl} 
+                  alt="Product preview" 
+                  onClick={() => openMediaViewer({
+                    url: imageUrl,
+                    type: 'image',
+                    title: title || 'รูปถ่ายสินค้า',
+                    subtitle: price ? `ราคา ฿${price}` : `หมวดหมู่: ${category}`
+                  })}
+                  className="w-full h-40 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
+                />
                 <button
                   type="button"
                   onClick={() => setImageUrl('')}
-                  className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors"
+                  className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-10"
                 >
                   <X size={14} />
                 </button>
+                <div 
+                  onClick={() => openMediaViewer({
+                    url: imageUrl,
+                    type: 'image',
+                    title: title || 'รูปถ่ายสินค้า',
+                    subtitle: price ? `ราคา ฿${price}` : `หมวดหมู่: ${category}`
+                  })}
+                  className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg border border-white/20 cursor-pointer pointer-events-none"
+                >
+                  แตะเพื่อดูรูปเต็มจอ
+                </div>
               </div>
             ) : (
               <button

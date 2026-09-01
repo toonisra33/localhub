@@ -184,3 +184,26 @@ export interface MorningBrief {
   announcements: number;
 }
 
+export type ContactRequestType = 'pr_request' | 'news_report' | 'urgent_tip' | 'complaint' | 'special_help';
+export type ContactRequestStatus = 'pending' | 'reviewed' | 'approved_and_broadcast' | 'resolved';
+
+export interface AdminContactRequest {
+  id: string;
+  type: ContactRequestType;
+  title: string;
+  detail: string;
+  senderName: string;
+  senderPhone: string;
+  senderEmail?: string;
+  senderUid?: string;
+  senderAvatar?: string;
+  targetArea?: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  preferredTime?: string;
+  createdAt: number;
+  timeStr: string;
+  status: ContactRequestStatus;
+  adminNote?: string;
+}
+

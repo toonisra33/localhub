@@ -7,7 +7,7 @@ interface CommunityEventsModalProps {
 }
 
 export function CommunityEventsModal({ onClose }: CommunityEventsModalProps) {
-  const { events, toggleJoinEvent, showToast } = useCommunity();
+  const { events, toggleJoinEvent, showToast, openMediaViewer } = useCommunity();
 
   const handleShareEvent = (title: string) => {
     navigator.clipboard?.writeText(window.location.href);
@@ -45,12 +45,25 @@ export function CommunityEventsModal({ onClose }: CommunityEventsModalProps) {
               key={ev.id}
               className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
             >
-              <div className="relative h-36 bg-slate-100 overflow-hidden">
+              <div 
+                onClick={() => openMediaViewer({
+                  url: ev.image,
+                  type: 'image',
+                  title: ev.title,
+                  subtitle: `วันที่ ${ev.date} (${ev.time}) • ${ev.venue}`
+                })}
+                className="relative h-36 bg-slate-100 overflow-hidden cursor-pointer group"
+              >
                 <img
                   src={ev.image}
                   alt={ev.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+                    แตะเพื่อดูภาพเต็มจอ
+                  </span>
+                </div>
                 <div className="absolute top-2.5 left-2.5 bg-slate-950/80 backdrop-blur-md text-white text-[10.5px] font-extrabold px-2.5 py-1 rounded-full border border-white/20">
                   {ev.date}
                 </div>

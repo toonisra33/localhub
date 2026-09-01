@@ -9,7 +9,7 @@ interface PostDetailCommentsModalProps {
 }
 
 export function PostDetailCommentsModal({ post, onClose }: PostDetailCommentsModalProps) {
-  const { toggleLikePost, addComment, deletePost, showToast, userProfile } = useCommunity();
+  const { toggleLikePost, addComment, deletePost, showToast, userProfile, openMediaViewer } = useCommunity();
   const [commentInput, setCommentInput] = useState('');
   const [isCopied, setIsCopied] = useState(false);
 
@@ -73,8 +73,21 @@ export function PostDetailCommentsModal({ post, onClose }: PostDetailCommentsMod
             </p>
 
             {post.image && (
-              <div className="rounded-xl overflow-hidden max-h-52 bg-slate-900 border border-slate-200">
-                <img src={post.image} alt="Post media" className="w-full h-52 object-cover" />
+              <div 
+                onClick={() => openMediaViewer({
+                  url: post.image!,
+                  type: 'image',
+                  title: `โพสต์โดย ${post.author.name}`,
+                  subtitle: `ต.${post.location.subdistrict} • ${post.time}`
+                })}
+                className="rounded-xl overflow-hidden max-h-52 bg-slate-900 border border-slate-200 cursor-pointer relative group"
+              >
+                <img src={post.image} alt="Post media" className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+                    แตะเพื่อดูภาพเต็มจอ
+                  </span>
+                </div>
               </div>
             )}
 
