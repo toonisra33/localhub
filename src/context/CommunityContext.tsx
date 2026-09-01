@@ -696,17 +696,33 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setIsLoggedIn(true);
     setIsAuthModalOpen(false);
 
+    const isAdmin = isAuthorizedAdminEmail(credentials.phoneOrEmail);
+    const assignedRole = isAdmin ? 'admin' : 'user';
+
+    try {
+      localStorage.setItem('locallink_user_role', assignedRole);
+    } catch {}
+
     // If custom details were provided during login
     setUserProfile(prev => ({
       ...prev,
-      name: credentials.name || prev.name,
+      name: isAdmin ? (credentials.name || 'แอดมินศูนย์ควบคุมชุมชน') : (credentials.name || prev.name),
       phone: credentials.phoneOrEmail?.includes('@') ? prev.phone : (credentials.phoneOrEmail || prev.phone),
-      email: credentials.phoneOrEmail?.includes('@') ? credentials.phoneOrEmail : prev.email,
-      avatar: credentials.avatar || prev.avatar,
-      address: credentials.address || prev.address
+      email: credentials.phoneOrEmail?.includes('@') ? credentials.phoneOrEmail.trim() : prev.email,
+      avatar: isAdmin 
+        ? (credentials.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200')
+        : (credentials.avatar || prev.avatar),
+      address: credentials.address || prev.address,
+      role: assignedRole,
+      isVerified: true,
+      reputationScore: isAdmin ? 100 : (prev.reputationScore || 85)
     }));
 
-    showToast(`👋 ยินดีต้อนรับกลับ, ${credentials.name || userProfile.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
+    if (isAdmin) {
+      showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบ (${credentials.phoneOrEmail})! ได้รับสิทธิ์แอดมินเรียบร้อยแล้ว`, 'success');
+    } else {
+      showToast(`👋 ยินดีต้อนรับกลับ, ${credentials.name || userProfile.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
+    }
     
     if (pendingAuthAction) {
       pendingAuthAction();
@@ -724,12 +740,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       const updatedProfile: UserProfileData = {
         id: user.uid,
         uid: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'สมาชิกชุมชน',
+        name: user.displayName || user.email?.split('@')[0] || (role === 'admin' ? 'แอดมินศูนย์ควบคุมชุมชน' : 'สมาชิกชุมชน'),
         phone: user.phoneNumber || userProfile.phone || '081-000-0000',
         email: user.email || '',
         address: userProfile.address || `${location.district}, ${location.province}`,
         villageOrCondo: userProfile.villageOrCondo || location.village || 'ชุมชนท้องถิ่น',
-        bio: `สมาชิกผ่านการยืนยันตัวตนด้วย Google (${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้อยู่อาศัย'})`,
+        bio: `สมาชิกผ่านการยืนยันตัวตนด้วย Google (${role === 'admin' ? 'ผู้ดูแลระบบสูงสุด' : 'ผู้อยู่อาศัย'})`,
         avatar: user.photoURL || userProfile.avatar,
         isVerified: true,
         joinedDate: 'วันนี้',
@@ -765,6 +781,13 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   };
 
   const register = (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => {
+    const isAdmin = isAuthorizedAdminEmail(data.email);
+    const assignedRole = isAdmin ? 'admin' : 'user';
+
+    try {
+      localStorage.setItem('locallink_user_role', assignedRole);
+    } catch {}
+
     const newProfile: UserProfileData = {
       id: `user_${Date.now()}`,
       name: data.name.trim(),
@@ -774,15 +797,21 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       villageOrCondo: data.villageOrCondo?.trim() || location.village || 'ชุมชนท้องถิ่น',
       bio: data.bio?.trim() || `สมาชิกใหม่แห่งชุมชน ${location.district}`,
       avatar: data.avatar || `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 500)}?auto=format&fit=crop&q=80&w=200`,
-      isVerified: false,
+      isVerified: isAdmin,
       joinedDate: 'วันนี้',
-      reputationScore: 50
+      reputationScore: isAdmin ? 100 : 50,
+      role: assignedRole
     };
 
     setUserProfile(newProfile);
     setIsLoggedIn(true);
     setIsAuthModalOpen(false);
-    showToast(`🎉 ยินดีต้อนรับคุณ ${data.name}! สมัครสมาชิกและเข้าสู่ระบบเรียบร้อยแล้ว`, 'success');
+
+    if (isAdmin) {
+      showToast(`👑 บัญชีแอดมิน (${data.email}) ลงทะเบียนและเข้าสู่ระบบสำเร็จแล้ว`, 'success');
+    } else {
+      showToast(`🎉 ยินดีต้อนรับคุณ ${data.name}! สมัครสมาชิกและเข้าสู่ระบบเรียบร้อยแล้ว`, 'success');
+    }
 
     if (pendingAuthAction) {
       pendingAuthAction();
@@ -793,6 +822,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await signOutAuth();
+    } catch {}
+    try {
+      localStorage.setItem('locallink_user_role', 'user');
     } catch {}
     setIsLoggedIn(false);
     showToast('ออกจากระบบเรียบร้อยแล้ว เข้าสู่โหมดผู้เยี่ยมชม', 'info');

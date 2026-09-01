@@ -1,7 +1,8 @@
 import React from 'react';
-import { Home, MapPin, Users, Store, User, ShieldAlert, BarChart3, LayoutDashboard } from 'lucide-react';
+import { Home, MapPin, Users, Store, User, BarChart3 } from 'lucide-react';
 import { Tab } from '../types';
 import { useBroadcast } from '../context/BroadcastContext';
+import { useCommunity } from '../context/CommunityContext';
 
 interface NavigationProps {
   activeTab: Tab;
@@ -10,13 +11,16 @@ interface NavigationProps {
 
 export function Navigation({ activeTab, setActiveTab }: NavigationProps) {
   const { role } = useBroadcast();
+  const { isLoggedIn } = useCommunity();
+
+  const isAdmin = isLoggedIn && role === 'admin';
 
   const navItems = [
     { id: 'home', icon: Home, label: 'หน้าหลัก' },
     { id: 'map', icon: MapPin, label: 'รอบตัว' },
     { id: 'community', icon: Users, label: 'ฟีดชุมชน' },
     { id: 'market', icon: Store, label: 'ตลาด' },
-    ...(role === 'admin' ? [{ id: 'admin_dashboard', icon: BarChart3, label: 'แดชบอร์ด' }] : []),
+    ...(isAdmin ? [{ id: 'admin_dashboard', icon: BarChart3, label: 'แดชบอร์ด' }] : []),
     { id: 'me', icon: User, label: 'ฉัน' },
   ] as const;
 

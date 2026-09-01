@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useCommunity } from '../../context/CommunityContext';
 import { useBroadcast } from '../../context/BroadcastContext';
-import { ROOT_ADMIN_EMAILS } from '../../lib/firebase';
+import { isAuthorizedAdminEmail, ROOT_ADMIN_EMAILS } from '../../lib/firebase';
 import { LocalHubLogo } from '../LocalHubLogo';
 
 const AVATAR_OPTIONS = [
@@ -34,45 +34,6 @@ const AVATAR_OPTIONS = [
   'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200',
-];
-
-const DEMO_USERS = [
-  {
-    name: 'แอดมินศูนย์ควบคุมชุมชน',
-    phone: '080-999-8888',
-    email: 'admin@locallink.app',
-    roleLabel: '👑 ผู้ดูแลระบบสูงสุด (Admin)',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-    address: 'ศูนย์บัญชาการชุมชนสัมพันธ์และเตือนภัย เขตจตุจักร',
-    isAdmin: true
-  },
-  {
-    name: 'สมชาย รักดี',
-    phone: '081-234-5678',
-    email: 'somchai.local@email.com',
-    roleLabel: 'ผู้อยู่อาศัย / กรรมการหมู่บ้าน',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-    address: 'หมู่บ้านพหลโยธินวิลล่า ซอย 3',
-    isAdmin: false
-  },
-  {
-    name: 'ป้าพร ขนมไทย',
-    phone: '089-876-5432',
-    email: 'praporn.sweets@email.com',
-    roleLabel: 'ร้านค้าในตลาดชุมชน',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
-    address: 'ตลาดเช้าพหลโยธิน แผงที่ 12',
-    isAdmin: false
-  },
-  {
-    name: 'กิตติศักดิ์ พิทักษ์ถิ่น',
-    phone: '086-555-9988',
-    email: 'kittisak.guard@email.com',
-    roleLabel: 'หัวหน้าอาสาเตือนภัย',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
-    address: 'ซอยร่วมใจพัฒนา 5',
-    isAdmin: false
-  }
 ];
 
 export function AuthModal() {
@@ -203,9 +164,11 @@ export function AuthModal() {
       return;
     }
 
-    const isAdminLogin = loginPhoneOrEmail.toLowerCase().includes('admin') || loginPhoneOrEmail === '080-999-8888';
+    const isAdminLogin = isAuthorizedAdminEmail(loginPhoneOrEmail);
     if (isAdminLogin) {
       setRole('admin');
+    } else {
+      setRole('user');
     }
 
     login({
@@ -224,26 +187,13 @@ export function AuthModal() {
         const currentUserRole = localStorage.getItem('locallink_user_role');
         if (currentUserRole === 'admin') {
           setRole('admin');
+        } else {
+          setRole('user');
         }
       }
     } finally {
       setIsSigningInGoogle(false);
     }
-  };
-
-  const handleQuickLogin = (demoUser: typeof DEMO_USERS[0]) => {
-    if (demoUser.isAdmin) {
-      setRole('admin');
-    } else {
-      setRole('user');
-    }
-    
-    login({
-      phoneOrEmail: demoUser.phone,
-      name: demoUser.name,
-      avatar: demoUser.avatar,
-      address: demoUser.address
-    });
   };
 
   return (
@@ -644,62 +594,6 @@ export function AuthModal() {
                 </svg>
                 {isSigningInGoogle ? 'กำลังเชื่อมต่อ Firebase...' : 'เข้าสู่ระบบด้วย Google Account'}
               </button>
-
-              {/* Admin info badge */}
-              <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl flex items-start gap-2.5">
-                <ShieldCheck size={16} className="text-amber-700 shrink-0 mt-0.5" />
-                <div className="text-[11.5px] text-amber-900 leading-relaxed">
-                  <span className="font-extrabold text-amber-950">สำหรับผู้ดูแลระบบ (Admin):</span> เข้าสู่ระบบด้วย Google บัญชี <code className="bg-amber-100 text-amber-950 px-1 py-0.5 rounded font-mono font-bold">toonisra33@gmail.com</code> เพื่อรับสิทธิ์ควบคุมแผง Admin อัตโนมัติและซิงค์ความปลอดภัยกับ Firebase
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white text-slate-400 font-medium">หรือเข้าสู่ระบบด่วน (Quick Demo)</span>
-                </div>
-              </div>
-
-              {/* Demo Quick Accounts */}
-              <div className="space-y-2">
-                <p className="text-[11.5px] font-bold text-slate-500">เลือกโปรไฟล์ตัวอย่างเพื่อเข้าทดสอบทันที:</p>
-                {DEMO_USERS.map((demo, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleQuickLogin(demo)}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left group ${
-                      demo.isAdmin 
-                        ? 'bg-rose-50/70 hover:bg-rose-100/80 border-rose-200 hover:border-rose-300 shadow-sm'
-                        : 'bg-slate-50 hover:bg-emerald-50/60 border-slate-200 hover:border-emerald-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="relative">
-                        <img src={demo.avatar} alt={demo.name} className="w-9 h-9 rounded-xl object-cover" />
-                        {demo.isAdmin && (
-                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow">
-                            👑
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className={`text-[12.5px] font-extrabold ${demo.isAdmin ? 'text-rose-950 group-hover:text-rose-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>
-                          {demo.name}
-                        </p>
-                        <p className={`text-[10.5px] ${demo.isAdmin ? 'text-rose-700/80' : 'text-slate-500'}`}>
-                          {demo.roleLabel} • {demo.phone}
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight size={15} className={`${demo.isAdmin ? 'text-rose-400 group-hover:text-rose-600' : 'text-slate-400 group-hover:text-emerald-600'} transition-transform group-hover:translate-x-0.5`} />
-                  </button>
-                ))}
-              </div>
-
             </form>
           )}
 

@@ -46,9 +46,9 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<UserRole>(() => {
     try {
       const saved = localStorage.getItem(USER_ROLE_KEY);
-      return (saved === 'user' || saved === 'admin') ? saved : 'admin';
+      return saved === 'admin' ? 'admin' : 'user';
     } catch {
-      return 'admin';
+      return 'user';
     }
   });
 

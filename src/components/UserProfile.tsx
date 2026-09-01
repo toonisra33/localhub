@@ -268,50 +268,30 @@ export function UserProfile() {
         </div>
       )}
 
-      {/* Admin Access & Firebase Security Status Card */}
-      <div className="px-5 mt-5">
-        <div className="bg-white p-4.5 rounded-[24px] border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
-              }`}>
-                <ShieldCheck size={18} />
+      {/* Admin Access & Firebase Security Status Card (Only for Admins) */}
+      {role === 'admin' && (
+        <div className="px-5 mt-5">
+          <div className="bg-white p-4.5 rounded-[24px] border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-rose-50 text-rose-600`}>
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h4 className="text-[13px] font-extrabold text-slate-900 leading-tight">
+                    สิทธิ์การใช้งานและการรักษาความปลอดภัย
+                  </h4>
+                  <p className="text-[11px] font-medium text-slate-500">
+                    โหมดผู้ดูแลระบบ (Firebase Verified)
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-[13px] font-extrabold text-slate-900 leading-tight">
-                  สิทธิ์การใช้งานและการรักษาความปลอดภัย
-                </h4>
-                <p className="text-[11px] font-medium text-slate-500">
-                  {role === 'admin' ? 'โหมดผู้ดูแลระบบ (Firebase Verified)' : 'สมาชิกทั่วไป (Resident)'}
-                </p>
-              </div>
+
+              <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border bg-rose-50 text-rose-700 border-rose-200/80`}>
+                👑 Admin
+              </span>
             </div>
 
-            <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border ${
-              role === 'admin' 
-                ? 'bg-rose-50 text-rose-700 border-rose-200/80' 
-                : 'bg-slate-100 text-slate-600 border-slate-200'
-            }`}>
-              {role === 'admin' ? '👑 Admin' : '👤 User'}
-            </span>
-          </div>
-
-          {/* If not logged in as authorized admin, give quick Google Sign In option */}
-          {role !== 'admin' ? (
-            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/70 text-slate-600 text-xs">
-              <p className="text-[11.5px] leading-relaxed text-slate-600 mb-2.5">
-                การเข้าถึงแผงควบคุมและสถิติ Admin ถูกจำกัดเฉพาะบัญชีผู้ดูแลระบบที่ผ่านการรับรองจาก Firebase เท่านั้น
-              </p>
-              <button
-                onClick={() => openAuthModal('login')}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-2 shadow-sm"
-              >
-                <LogIn size={14} />
-                เข้าสู่ระบบด้วยบัญชีแอดมิน (toonisra33@gmail.com)
-              </button>
-            </div>
-          ) : (
             <div className="bg-rose-50/60 rounded-2xl p-3 border border-rose-200/60 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -319,19 +299,10 @@ export function UserProfile() {
                   กำลังใช้งานสิทธิ์แอดมินสูงสุด ({userProfile.email || 'toonisra33@gmail.com'})
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  setRole('user');
-                  showToast('สลับเข้าสู่มุมมองจำลองของลูกบ้าน (Resident View)', 'info');
-                }}
-                className="text-[11px] font-extrabold text-rose-700 hover:text-rose-900 underline"
-              >
-                ดูมุมมองลูกบ้าน
-              </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Admin Specific Insights & Broadcast Cards */}
       {role === 'admin' && (
@@ -386,8 +357,8 @@ export function UserProfile() {
       )}
 
       {/* Admin Broadcast Card */}
-      <div className="px-5 mt-4">
-        {role === 'admin' ? (
+      {role === 'admin' && (
+        <div className="px-5 mt-4">
           <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-rose-950 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden border border-rose-500/20">
             <div className="flex items-start justify-between relative z-10 mb-3">
               <div className="flex items-center gap-3">
@@ -426,18 +397,8 @@ export function UserProfile() {
               {activeBroadcast ? 'จัดการ / ส่งบรอดแคสใหม่' : 'สร้างและส่งบรอดแคสด่วน'}
             </button>
           </div>
-        ) : (
-          <div className="bg-white border border-slate-200/80 rounded-[24px] p-4 text-slate-500 flex items-center gap-3 shadow-sm">
-            <div className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 shrink-0">
-              <Lock size={17} />
-            </div>
-            <div className="text-[12px]">
-              <p className="font-bold text-slate-800">สิทธิ์บรอดแคสสงวนไว้สำหรับแอดมิน</p>
-              <p className="text-slate-500">ผู้ใช้งานทั่วไปไม่สามารถส่งสัญญาณบรอดแคสได้</p>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Menu List */}
       <div className="px-5 mt-5 space-y-2.5">
