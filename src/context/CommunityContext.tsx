@@ -18,6 +18,15 @@ import {
   mockEvents, 
   availableLocations 
 } from '../data';
+import { 
+  auth, 
+  db, 
+  signInWithGoogleAuth, 
+  signOutAuth, 
+  isAuthorizedAdminEmail 
+} from '../lib/firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 interface ToastInfo {
   id: string;
@@ -71,6 +80,7 @@ interface CommunityContextType {
   updateUserProfile: (data: Partial<UserProfileData>) => void;
   verifyUserAccount: () => void;
   login: (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }) => boolean;
+  loginWithGoogle: () => Promise<boolean>;
   register: (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => void;
   logout: () => void;
   isAuthModalOpen: boolean;
@@ -293,6 +303,55 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       );
     });
   };
+
+  // Listen for Firebase Auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        setIsLoggedIn(true);
+        const isAdmin = isAuthorizedAdminEmail(firebaseUser.email);
+        const role = isAdmin ? 'admin' : 'user';
+
+        // Listen or fetch profile from Firestore
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        try {
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setUserProfile(prev => ({
+              ...prev,
+              id: firebaseUser.uid,
+              uid: firebaseUser.uid,
+              name: data.displayName || firebaseUser.displayName || prev.name,
+              email: firebaseUser.email || prev.email,
+              avatar: data.photoURL || firebaseUser.photoURL || prev.avatar,
+              phone: data.phone || prev.phone,
+              address: data.address || prev.address,
+              isVerified: true,
+              role: (data.role || role) as 'admin' | 'user',
+              isGoogleUser: true
+            }));
+          } else {
+            setUserProfile(prev => ({
+              ...prev,
+              id: firebaseUser.uid,
+              uid: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || prev.name,
+              email: firebaseUser.email || prev.email,
+              avatar: firebaseUser.photoURL || prev.avatar,
+              isVerified: true,
+              role: role as 'admin' | 'user',
+              isGoogleUser: true
+            }));
+          }
+        } catch (e) {
+          console.error('Error fetching Firestore user profile:', e);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Persistence helpers
   useEffect(() => {
@@ -555,6 +614,55 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const loginWithGoogle = async (): Promise<boolean> => {
+    try {
+      const { user, role } = await signInWithGoogleAuth();
+      setIsLoggedIn(true);
+      setIsAuthModalOpen(false);
+
+      const updatedProfile: UserProfileData = {
+        id: user.uid,
+        uid: user.uid,
+        name: user.displayName || user.email?.split('@')[0] || 'สมาชิกชุมชน',
+        phone: user.phoneNumber || userProfile.phone || '081-000-0000',
+        email: user.email || '',
+        address: userProfile.address || `${location.district}, ${location.province}`,
+        villageOrCondo: userProfile.villageOrCondo || location.village || 'ชุมชนท้องถิ่น',
+        bio: `สมาชิกผ่านการยืนยันตัวตนด้วย Google (${role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้อยู่อาศัย'})`,
+        avatar: user.photoURL || userProfile.avatar,
+        isVerified: true,
+        joinedDate: 'วันนี้',
+        reputationScore: role === 'admin' ? 100 : 85,
+        role: role as 'admin' | 'user',
+        isGoogleUser: true
+      };
+
+      setUserProfile(updatedProfile);
+      
+      if (role === 'admin') {
+        try {
+          localStorage.setItem('locallink_user_role', 'admin');
+        } catch {}
+        showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบสูงสุด (${user.email})! ได้รับสิทธิ์แอดมินและบันทึกลง Firebase แล้ว`, 'success');
+      } else {
+        try {
+          localStorage.setItem('locallink_user_role', 'user');
+        } catch {}
+        showToast(`✅ เข้าสู่ระบบสำเร็จ ยินดีต้อนรับคุณ ${updatedProfile.name}`, 'success');
+      }
+
+      if (pendingAuthAction) {
+        pendingAuthAction();
+        setPendingAuthAction(null);
+      }
+      return true;
+    } catch (err: any) {
+      console.error('Google Sign-in failed:', err);
+      showToast(err.message || 'การเข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', 'error');
+      return false;
+    }
+  };
+
   const register = (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => {
     const newProfile: UserProfileData = {
       id: `user_${Date.now()}`,
@@ -581,7 +689,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOutAuth();
+    } catch {}
     setIsLoggedIn(false);
     showToast('ออกจากระบบเรียบร้อยแล้ว เข้าสู่โหมดผู้เยี่ยมชม', 'info');
   };
@@ -634,6 +745,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         updateUserProfile,
         verifyUserAccount,
         login,
+        loginWithGoogle,
         register,
         logout,
         isAuthModalOpen,

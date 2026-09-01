@@ -160,6 +160,7 @@ export interface AppNotification {
 
 export interface UserProfileData {
   id?: string;
+  uid?: string;
   name: string;
   phone: string;
   email?: string;
@@ -170,6 +171,8 @@ export interface UserProfileData {
   isVerified: boolean;
   joinedDate: string;
   reputationScore: number;
+  role?: UserRole;
+  isGoogleUser?: boolean;
 }
 
 export interface MorningBrief {

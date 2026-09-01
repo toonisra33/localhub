@@ -8,6 +8,7 @@ import {
   AlertTriangle, 
   ChevronRight, 
   Shield, 
+  ShieldCheck,
   Award, 
   Radio, 
   UserCheck, 
@@ -256,56 +257,68 @@ export function UserProfile() {
         </div>
       )}
 
-      {/* Role Switcher (For Testing Admin / User experience) */}
+      {/* Admin Access & Firebase Security Status Card */}
       <div className="px-5 mt-5">
-        <div className="bg-white p-4 rounded-[24px] border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <UserCheck size={16} />
+        <div className="bg-white p-4.5 rounded-[24px] border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
+              }`}>
+                <ShieldCheck size={18} />
               </div>
-              <span className="text-[13px] font-extrabold text-slate-800">สลับสิทธิ์การใช้งาน (Role Switcher)</span>
+              <div>
+                <h4 className="text-[13px] font-extrabold text-slate-900 leading-tight">
+                  สิทธิ์การใช้งานและการรักษาความปลอดภัย
+                </h4>
+                <p className="text-[11px] font-medium text-slate-500">
+                  {role === 'admin' ? 'โหมดผู้ดูแลระบบ (Firebase Verified)' : 'สมาชิกทั่วไป (Resident)'}
+                </p>
+              </div>
             </div>
-            <span className="text-[11px] font-bold text-slate-400">โหมดทดสอบ</span>
+
+            <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border ${
+              role === 'admin' 
+                ? 'bg-rose-50 text-rose-700 border-rose-200/80' 
+                : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>
+              {role === 'admin' ? '👑 Admin' : '👤 User'}
+            </span>
           </div>
-          
-          <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/60">
-            <button
-              onClick={() => {
-                setRole('admin');
-                updateUserProfile({
-                  name: 'แอดมินศูนย์ควบคุมชุมชน',
-                  phone: '080-999-8888',
-                  email: 'admin@locallink.app',
-                  address: 'ศูนย์บัญชาการชุมชนสัมพันธ์และเตือนภัย เขตจตุจักร',
-                  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
-                });
-                showToast('👑 สลับเป็นโหมด ผู้ดูแลระบบ (Admin) สำเร็จ', 'success');
-              }}
-              className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-                role === 'admin'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Shield size={14} className={role === 'admin' ? 'text-rose-400' : ''} />
-              แอดมิน (Admin)
-            </button>
-            <button
-              onClick={() => {
-                setRole('user');
-                showToast('สลับเป็นโหมด สมาชิกทั่วไป (User)');
-              }}
-              className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-                role === 'user'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Lock size={14} />
-              ผู้ใช้ทั่วไป (User)
-            </button>
-          </div>
+
+          {/* If not logged in as authorized admin, give quick Google Sign In option */}
+          {role !== 'admin' ? (
+            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/70 text-slate-600 text-xs">
+              <p className="text-[11.5px] leading-relaxed text-slate-600 mb-2.5">
+                การเข้าถึงแผงควบคุมและสถิติ Admin ถูกจำกัดเฉพาะบัญชีผู้ดูแลระบบที่ผ่านการรับรองจาก Firebase เท่านั้น
+              </p>
+              <button
+                onClick={() => openAuthModal('login')}
+                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-2 shadow-sm"
+              >
+                <LogIn size={14} />
+                เข้าสู่ระบบด้วยบัญชีแอดมิน (toonisra33@gmail.com)
+              </button>
+            </div>
+          ) : (
+            <div className="bg-rose-50/60 rounded-2xl p-3 border border-rose-200/60 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-[12px] font-bold text-rose-950">
+                  กำลังใช้งานสิทธิ์แอดมินสูงสุด ({userProfile.email || 'toonisra33@gmail.com'})
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setRole('user');
+                  showToast('สลับเข้าสู่มุมมองจำลองของลูกบ้าน (Resident View)', 'info');
+                }}
+                className="text-[11px] font-extrabold text-rose-700 hover:text-rose-900 underline"
+              >
+                ดูมุมมองลูกบ้าน
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
