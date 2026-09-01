@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Layers, Filter, Search, MapPin, Compass, Navigation2, Zap } from 'lucide-react';
+import { Layers, Filter, Search, MapPin, Compass, Navigation, Navigation2, Zap } from 'lucide-react';
 import { useCommunity } from '../context/CommunityContext';
 import { MapFilterModal } from './modals/MapFilterModal';
 import { PlaceDetailModal, MapPoint } from './modals/PlaceDetailModal';
 import { LocalHubLogo } from './LocalHubLogo';
 
 export function AroundMeMap() {
-  const { showToast } = useCommunity();
+  const { showToast, openLocationPermissionModal, location, isLocatingGps } = useCommunity();
   const [radius, setRadius] = useState<string>('5km');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -234,14 +234,28 @@ export function AroundMeMap() {
           ))}
         </div>
 
-        {/* Floating Action Button */}
-        <button 
-          onClick={() => setShowFilterModal(true)}
-          title="ชั้นข้อมูล"
-          className="absolute bottom-36 right-5 w-11 h-11 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.1)] flex items-center justify-center text-slate-700 hover:bg-slate-50 border border-slate-200/80 transition-all active:scale-95 z-10"
-        >
-          <Layers size={20} />
-        </button>
+        {/* Floating Action Buttons */}
+        <div className="absolute bottom-36 right-5 flex flex-col gap-2.5 z-10">
+          <button 
+            onClick={() => openLocationPermissionModal()}
+            title="ขออนุญาตระบุพิกัด GPS จริง"
+            className={`w-11 h-11 backdrop-blur-md rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] flex items-center justify-center border transition-all active:scale-95 ${
+              location.isGps
+                ? 'bg-emerald-600 text-white border-emerald-500 ring-2 ring-emerald-500/30'
+                : 'bg-white/95 text-slate-700 hover:bg-slate-50 border-slate-200/80'
+            }`}
+          >
+            <Navigation size={18} className={isLocatingGps ? 'animate-spin' : (location.isGps ? 'text-white' : 'text-emerald-600')} />
+          </button>
+
+          <button 
+            onClick={() => setShowFilterModal(true)}
+            title="ชั้นข้อมูล"
+            className="w-11 h-11 bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.1)] flex items-center justify-center text-slate-700 hover:bg-slate-50 border border-slate-200/80 transition-all active:scale-95"
+          >
+            <Layers size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Modals */}

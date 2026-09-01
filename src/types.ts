@@ -1,4 +1,4 @@
-export type Tab = 'home' | 'map' | 'community' | 'market' | 'me';
+export type Tab = 'home' | 'map' | 'community' | 'market' | 'me' | 'admin_dashboard';
 
 export type UserRole = 'admin' | 'user';
 
@@ -33,6 +33,11 @@ export interface Location {
   subdistrict: string;
   village?: string;
   distance?: number;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  isGps?: boolean;
+  timestamp?: number;
 }
 
 export type VerificationStatus = 'unconfirmed' | 'members' | 'authority';
@@ -151,6 +156,20 @@ export interface AppNotification {
   time: string;
   read: boolean;
   type: 'alert' | 'broadcast' | 'community' | 'market';
+}
+
+export interface UserProfileData {
+  id?: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address: string;
+  villageOrCondo?: string;
+  bio: string;
+  avatar: string;
+  isVerified: boolean;
+  joinedDate: string;
+  reputationScore: number;
 }
 
 export interface MorningBrief {

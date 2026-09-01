@@ -15,7 +15,16 @@ import {
   Clock,
   Sparkles,
   Edit3,
-  CheckCircle2
+  CheckCircle2,
+  UserPlus,
+  LogIn,
+  LogOut,
+  User,
+  Phone,
+  Mail,
+  BarChart3,
+  TrendingUp,
+  LayoutDashboard
 } from 'lucide-react';
 import { useBroadcast } from '../context/BroadcastContext';
 import { useCommunity } from '../context/CommunityContext';
@@ -36,12 +45,16 @@ export function UserProfile() {
   } = useBroadcast();
 
   const { 
+    isLoggedIn,
     userProfile, 
+    updateUserProfile,
     location, 
     posts, 
     products, 
     alerts, 
     setActiveTab, 
+    openAuthModal,
+    logout,
     showToast 
   } = useCommunity();
 
@@ -100,78 +113,148 @@ export function UserProfile() {
   return (
     <div className="pb-28 pt-4 animate-in fade-in duration-300 bg-slate-50/60 min-h-screen">
       
-      {/* Profile Header */}
-      <div className="bg-white/95 backdrop-blur-xl px-5 pt-7 pb-7 shadow-sm border-b border-slate-200/80 rounded-b-[36px]">
-        <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-          <LocalHubLogo size="sm" variant="dark" showSubtitle={false} />
-          <div className="flex items-center gap-2">
-            {/* Quick Role Badge */}
-            <span className={`text-[11px] font-extrabold px-3 py-1 rounded-full border shadow-sm ${
-              role === 'admin' 
-                ? 'bg-rose-50 text-rose-700 border-rose-200' 
-                : 'bg-slate-100 text-slate-700 border-slate-200'
-            }`}>
-              {role === 'admin' ? '👑 แอดมิน' : '👤 สมาชิก'}
-            </span>
+      {/* Profile Header or Guest Welcome */}
+      {!isLoggedIn ? (
+        <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white px-5 pt-7 pb-7 shadow-lg rounded-b-[36px] border-b border-slate-800">
+          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800/80">
+            <LocalHubLogo size="sm" variant="light" showSubtitle={false} />
             <button 
               onClick={() => setShowSettingsModal(true)}
               title="ตั้งค่า"
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
             >
               <Settings size={18} />
             </button>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="relative group cursor-pointer" onClick={() => setShowEditProfileModal(true)}>
-            <img 
-              src={role === 'admin' ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200" : userProfile.avatar} 
-              alt="Profile" 
-              className="w-18 h-18 rounded-2xl object-cover ring-4 ring-slate-100 shadow-md group-hover:scale-105 transition-transform" 
-            />
-            <div className={`absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border-2 border-white shadow-md ${
-              role === 'admin' ? 'bg-rose-600' : 'bg-emerald-600'
-            }`}>
-              <Shield size={12} strokeWidth={3} />
-            </div>
-          </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[17px] font-extrabold text-slate-900 tracking-tight truncate">
-                {role === 'admin' ? 'แอดมินศูนย์ควบคุมชุมชน' : userProfile.name}
-              </h2>
-              <button
-                onClick={() => setShowEditProfileModal(true)}
-                className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                title="แก้ไขข้อมูล"
-              >
-                <Edit3 size={15} />
-              </button>
+          <div className="text-center py-3">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/25 mb-3 border-2 border-white/20">
+              <UserPlus size={28} />
             </div>
-
-            <p className="text-[12.5px] font-medium text-slate-500 flex items-center gap-1 mt-0.5">
-              <MapPin size={13} className="text-emerald-600 shrink-0" />
-              <span className="truncate">{location.district}, {location.province}</span>
+            <h2 className="text-[18px] font-extrabold tracking-tight text-white mb-1">
+              เข้าสู่ระบบ / ลงทะเบียนสมาชิก
+            </h2>
+            <p className="text-[12.5px] text-slate-300 font-medium max-w-xs mx-auto mb-5 leading-relaxed">
+              ร่วมเป็นส่วนหนึ่งของชุมชน {location.district} เพื่อโพสต์ข่าวสาร ซื้อขายสินค้าในตลาด และแจ้งเตือนเหตุด่วน
             </p>
 
-            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-0.5 rounded-full text-[11.5px] font-extrabold border border-emerald-100">
-                <Award size={13} className="text-amber-500" /> 
-                {role === 'admin' ? 'ผู้ดูแลระบบสูงสุด' : `คะแนนชุมชน: ${userProfile.reputationScore}`}
-              </span>
-
-              {userProfile.isVerified && (
-                <span className="inline-flex items-center gap-0.5 bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full text-[10.5px] font-extrabold border border-sky-100">
-                  <CheckCircle2 size={11} className="text-sky-600" />
-                  ยืนยันแล้ว
-                </span>
-              )}
+            <div className="grid grid-cols-2 gap-2.5 max-w-xs mx-auto">
+              <button
+                onClick={() => openAuthModal('register')}
+                className="py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-2xl text-[13px] font-extrabold shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 border border-emerald-400/30"
+              >
+                <UserPlus size={16} />
+                ลงทะเบียนใหม่
+              </button>
+              <button
+                onClick={() => openAuthModal('login')}
+                className="py-3 px-4 bg-slate-800/90 hover:bg-slate-700 text-slate-100 rounded-2xl text-[13px] font-extrabold border border-slate-700 shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-95"
+              >
+                <LogIn size={16} />
+                เข้าสู่ระบบ
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-white/95 backdrop-blur-xl px-5 pt-7 pb-6 shadow-sm border-b border-slate-200/80 rounded-b-[36px]">
+          <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+            <LocalHubLogo size="sm" variant="dark" showSubtitle={false} />
+            <div className="flex items-center gap-2">
+              {/* Quick Role Badge */}
+              <span className={`text-[11px] font-extrabold px-3 py-1 rounded-full border shadow-sm ${
+                role === 'admin' 
+                  ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                  : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}>
+                {role === 'admin' ? '👑 แอดมิน' : '👤 สมาชิก'}
+              </span>
+              <button 
+                onClick={() => setShowSettingsModal(true)}
+                title="ตั้งค่า"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <Settings size={18} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="relative group cursor-pointer" onClick={() => setShowEditProfileModal(true)}>
+              <img 
+                src={role === 'admin' ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200" : userProfile.avatar} 
+                alt="Profile" 
+                className="w-18 h-18 rounded-2xl object-cover ring-4 ring-slate-100 shadow-md group-hover:scale-105 transition-transform" 
+              />
+              <div className={`absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border-2 border-white shadow-md ${
+                role === 'admin' ? 'bg-rose-600' : 'bg-emerald-600'
+              }`}>
+                <Shield size={12} strokeWidth={3} />
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[17px] font-extrabold text-slate-900 tracking-tight truncate">
+                  {role === 'admin' ? 'แอดมินศูนย์ควบคุมชุมชน' : userProfile.name}
+                </h2>
+                <button
+                  onClick={() => setShowEditProfileModal(true)}
+                  className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="แก้ไขข้อมูล"
+                >
+                  <Edit3 size={15} />
+                </button>
+              </div>
+
+              <p className="text-[12.5px] font-medium text-slate-500 flex items-center gap-1 mt-0.5">
+                <MapPin size={13} className="text-emerald-600 shrink-0" />
+                <span className="truncate">{userProfile.address || `${location.district}, ${location.province}`}</span>
+              </p>
+
+              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-0.5 rounded-full text-[11.5px] font-extrabold border border-emerald-100">
+                  <Award size={13} className="text-amber-500" /> 
+                  {role === 'admin' ? 'ผู้ดูแลระบบสูงสุด' : `คะแนนชุมชน: ${userProfile.reputationScore}`}
+                </span>
+
+                {userProfile.isVerified && (
+                  <span className="inline-flex items-center gap-0.5 bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full text-[10.5px] font-extrabold border border-sky-100">
+                    <CheckCircle2 size={11} className="text-sky-600" />
+                    ยืนยันแล้ว
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Account Fast Action Bar (Register New / Switch / Logout) */}
+          <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
+            <button
+              onClick={() => openAuthModal('register')}
+              className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 rounded-xl text-[12px] font-extrabold border border-emerald-200/70 transition-all flex items-center justify-center gap-1.5"
+            >
+              <UserPlus size={14} />
+              ลงทะเบียนบัญชีใหม่
+            </button>
+            <button
+              onClick={() => openAuthModal('login')}
+              className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-1.5"
+            >
+              <LogIn size={14} />
+              สลับบัญชี
+            </button>
+            <button
+              onClick={logout}
+              className="py-2 px-3 text-rose-600 hover:bg-rose-50 rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-1"
+              title="ออกจากระบบ"
+            >
+              <LogOut size={14} />
+              ออก
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Role Switcher (For Testing Admin / User experience) */}
       <div className="px-5 mt-5">
@@ -190,7 +273,14 @@ export function UserProfile() {
             <button
               onClick={() => {
                 setRole('admin');
-                showToast('สลับเป็นโหมด ผู้ดูแลระบบ (Admin)');
+                updateUserProfile({
+                  name: 'แอดมินศูนย์ควบคุมชุมชน',
+                  phone: '080-999-8888',
+                  email: 'admin@locallink.app',
+                  address: 'ศูนย์บัญชาการชุมชนสัมพันธ์และเตือนภัย เขตจตุจักร',
+                  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
+                });
+                showToast('👑 สลับเป็นโหมด ผู้ดูแลระบบ (Admin) สำเร็จ', 'success');
               }}
               className={`py-2 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
                 role === 'admin'
@@ -218,6 +308,58 @@ export function UserProfile() {
           </div>
         </div>
       </div>
+
+      {/* Admin Specific Insights & Broadcast Cards */}
+      {role === 'admin' && (
+        <div className="px-5 mt-4 space-y-3">
+          
+          {/* Admin Analytics Dashboard Launcher Card */}
+          <div className="bg-white rounded-[28px] p-5 border border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
+            <div className="flex items-start justify-between mb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center border border-rose-100 shadow-sm">
+                  <BarChart3 size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-extrabold text-[16px] text-slate-900 tracking-tight">แดชบอร์ดสถิติชุมชน</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold">
+                      Live
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-slate-500 font-medium">ภาพรวมประชากร 4.8k คน และการใช้งานฟีเจอร์</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-3 gap-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-100 text-center mb-3.5">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">ผู้ใช้ทั้งหมด</p>
+                <p className="text-[14px] font-black text-slate-900 mt-0.5">4,892 คน</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">ผู้ใช้ต่อวัน</p>
+                <p className="text-[14px] font-black text-emerald-600 mt-0.5">1,280 คน</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">เตือนภัย/แก้แล้ว</p>
+                <p className="text-[14px] font-black text-rose-600 mt-0.5">94%</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('admin_dashboard')}
+              className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-[12.5px] font-extrabold transition-all flex items-center justify-center gap-2 shadow-md shadow-slate-950/20 active:scale-95 group"
+            >
+              <TrendingUp size={15} className="text-rose-400 group-hover:scale-110 transition-transform" />
+              <span>เปิดหน้าแดชบอร์ดสถิติเต็มรูปแบบ</span>
+              <ChevronRight size={15} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+
+        </div>
+      )}
 
       {/* Admin Broadcast Card */}
       <div className="px-5 mt-4">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Settings, Bell, Shield, Moon, Globe, Trash2, RefreshCw, Radio } from 'lucide-react';
+import { X, Settings, Bell, Shield, Moon, Globe, Trash2, RefreshCw, Radio, UserPlus, LogIn, LogOut, UserCheck } from 'lucide-react';
 import { useBroadcast } from '../../context/BroadcastContext';
 import { useCommunity } from '../../context/CommunityContext';
 
@@ -9,7 +9,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
   const { role, setRole } = useBroadcast();
-  const { showToast } = useCommunity();
+  const { isLoggedIn, userProfile, openAuthModal, logout, showToast } = useCommunity();
   const [allowNotifications, setAllowNotifications] = useState(true);
   const [emergencyAlertsOnly, setEmergencyAlertsOnly] = useState(false);
   const [radiusKm, setRadiusKm] = useState('5');
@@ -49,6 +49,62 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         {/* Settings Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
           
+          {/* User Account Section */}
+          <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200/80 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-extrabold text-slate-900 text-[13.5px]">บัญชีผู้ใช้งาน (User Account)</h4>
+                <p className="text-[11.5px] text-slate-500">
+                  {isLoggedIn ? `เข้าสู่ระบบในชื่อ: ${userProfile.name}` : 'ยังไม่ได้เข้าสู่ระบบ (โหมดผู้เยี่ยมชม)'}
+                </p>
+              </div>
+              <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${
+                isLoggedIn ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {isLoggedIn ? '✓ เข้าสู่ระบบแล้ว' : 'ผู้เยี่ยมชม'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openAuthModal('register');
+                }}
+                className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[12px] font-extrabold shadow-sm flex items-center justify-center gap-1.5 transition-all"
+              >
+                <UserPlus size={14} />
+                ลงทะเบียนใหม่
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openAuthModal('login');
+                }}
+                className="py-2.5 px-3 bg-white hover:bg-slate-50 text-slate-800 rounded-xl text-[12px] font-extrabold border border-slate-200 shadow-sm flex items-center justify-center gap-1.5 transition-all"
+              >
+                <LogIn size={14} />
+                เข้าสู่ระบบ / สลับบัญชี
+              </button>
+            </div>
+
+            {isLoggedIn && (
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  onClose();
+                }}
+                className="w-full mt-1.5 py-2 text-rose-600 hover:bg-rose-100/50 rounded-xl text-[11.5px] font-bold transition-all flex items-center justify-center gap-1"
+              >
+                <LogOut size={13} />
+                ออกจากระบบ (Logout)
+              </button>
+            )}
+          </div>
+
           {/* Role Toggle */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
             <div className="flex items-center justify-between">

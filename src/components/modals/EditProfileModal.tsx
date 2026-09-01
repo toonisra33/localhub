@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, User, Phone, MapPin, FileText, Camera, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, User, Phone, MapPin, FileText, Camera, Check, Upload } from 'lucide-react';
 import { useCommunity } from '../../context/CommunityContext';
 
 interface EditProfileModalProps {
@@ -7,20 +7,46 @@ interface EditProfileModalProps {
 }
 
 export function EditProfileModal({ onClose }: EditProfileModalProps) {
-  const { userProfile, updateUserProfile } = useCommunity();
+  const { userProfile, updateUserProfile, showToast } = useCommunity();
   const [name, setName] = useState(userProfile.name);
   const [phone, setPhone] = useState(userProfile.phone);
   const [address, setAddress] = useState(userProfile.address);
   const [bio, setBio] = useState(userProfile.bio);
   const [avatar, setAvatar] = useState(userProfile.avatar);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const avatarsList = [
-    'https://i.pravatar.cc/150?u=me',
-    'https://i.pravatar.cc/150?u=somchai',
-    'https://i.pravatar.cc/150?u=joy',
-    'https://i.pravatar.cc/150?u=pasri',
-    'https://i.pravatar.cc/150?u=alex',
+    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+    'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=200',
+    'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
   ];
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WEBP)', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('ขนาดไฟล์ภาพต้องไม่เกิน 5 MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setAvatar(result);
+        showToast('📸 อัปโหลดรูปโปรไฟล์เรียบร้อยแล้ว', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +57,7 @@ export function EditProfileModal({ onClose }: EditProfileModalProps) {
       bio: bio.trim(),
       avatar
     });
+    showToast('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว', 'success');
     onClose();
   };
 
@@ -61,28 +88,59 @@ export function EditProfileModal({ onClose }: EditProfileModalProps) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
           
-          {/* Avatar selection */}
-          <div>
-            <label className="block text-[11.5px] font-bold text-slate-600 mb-2">เลือกรูปโปรไฟล์</label>
+          {/* Avatar selection & upload */}
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <label className="block text-[12px] font-bold text-slate-700 mb-2">รูปโปรไฟล์ของคุณ</label>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              accept="image/*" 
+              className="hidden" 
+            />
+
             <div className="flex items-center gap-3">
-              <img
-                src={avatar}
-                alt="Selected avatar"
-                className="w-16 h-16 rounded-2xl object-cover ring-4 ring-emerald-500/20 shadow-md shrink-0"
-              />
-              <div className="flex gap-2 overflow-x-auto hide-scrollbar py-1">
-                {avatarsList.map((av, idx) => (
-                  <button
-                    type="button"
-                    key={idx}
-                    onClick={() => setAvatar(av)}
-                    className={`w-12 h-12 rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${
-                      avatar === av ? 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={av} alt="option" className="w-full h-full object-cover" />
-                  </button>
-                ))}
+              <div className="relative shrink-0">
+                <img
+                  src={avatar}
+                  alt="Selected avatar"
+                  className="w-16 h-16 rounded-2xl object-cover ring-4 ring-emerald-500/20 shadow-md"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white transition-transform active:scale-95"
+                  title="อัปโหลดรูปภาพใหม่"
+                >
+                  <Camera size={12} />
+                </button>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[11.5px] font-extrabold border border-slate-300 shadow-sm flex items-center justify-center gap-1.5 transition-all mb-2"
+                >
+                  <Upload size={13} className="text-emerald-600" />
+                  <span>อัปโหลดรูปถ่ายของคุณ</span>
+                </button>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  <span className="text-[10px] font-bold text-slate-400 shrink-0">หรือเลือก:</span>
+                  {avatarsList.map((av, idx) => (
+                    <button
+                      type="button"
+                      key={idx}
+                      onClick={() => setAvatar(av)}
+                      className={`w-7 h-7 rounded-lg overflow-hidden border transition-all shrink-0 ${
+                        avatar === av ? 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={av} alt="option" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

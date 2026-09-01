@@ -1,0 +1,677 @@
+import React, { useState, useRef } from 'react';
+import { 
+  X, 
+  UserPlus, 
+  LogIn, 
+  User, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Lock, 
+  ShieldCheck, 
+  Sparkles, 
+  Home, 
+  Check, 
+  Eye, 
+  EyeOff, 
+  ArrowRight,
+  Shield,
+  Upload,
+  Camera,
+  Image as ImageIcon,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
+import { useCommunity } from '../../context/CommunityContext';
+import { useBroadcast } from '../../context/BroadcastContext';
+import { LocalHubLogo } from '../LocalHubLogo';
+
+const AVATAR_OPTIONS = [
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+  'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=200',
+  'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200',
+];
+
+const DEMO_USERS = [
+  {
+    name: 'แอดมินศูนย์ควบคุมชุมชน',
+    phone: '080-999-8888',
+    email: 'admin@locallink.app',
+    roleLabel: '👑 ผู้ดูแลระบบสูงสุด (Admin)',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+    address: 'ศูนย์บัญชาการชุมชนสัมพันธ์และเตือนภัย เขตจตุจักร',
+    isAdmin: true
+  },
+  {
+    name: 'สมชาย รักดี',
+    phone: '081-234-5678',
+    email: 'somchai.local@email.com',
+    roleLabel: 'ผู้อยู่อาศัย / กรรมการหมู่บ้าน',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+    address: 'หมู่บ้านพหลโยธินวิลล่า ซอย 3',
+    isAdmin: false
+  },
+  {
+    name: 'ป้าพร ขนมไทย',
+    phone: '089-876-5432',
+    email: 'praporn.sweets@email.com',
+    roleLabel: 'ร้านค้าในตลาดชุมชน',
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
+    address: 'ตลาดเช้าพหลโยธิน แผงที่ 12',
+    isAdmin: false
+  },
+  {
+    name: 'กิตติศักดิ์ พิทักษ์ถิ่น',
+    phone: '086-555-9988',
+    email: 'kittisak.guard@email.com',
+    roleLabel: 'หัวหน้าอาสาเตือนภัย',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
+    address: 'ซอยร่วมใจพัฒนา 5',
+    isAdmin: false
+  }
+];
+
+export function AuthModal() {
+  const { 
+    isAuthModalOpen, 
+    authModalMode, 
+    closeAuthModal, 
+    openAuthModal, 
+    login, 
+    register, 
+    location,
+    showToast 
+  } = useCommunity();
+  const { setRole } = useBroadcast();
+
+  const [mode, setMode] = useState<'login' | 'register'>(authModalMode);
+  const [showPassword, setShowPassword] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Register Form State
+  const [regName, setRegName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regAddress, setRegAddress] = useState('');
+  const [regVillage, setRegVillage] = useState(location.village || 'หมู่บ้านพหลโยธิน');
+  const [regPassword, setRegPassword] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_OPTIONS[0]);
+  const [isCustomUploaded, setIsCustomUploaded] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(true);
+
+  // Login Form State
+  const [loginPhoneOrEmail, setLoginPhoneOrEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Password validation rules
+  const hasMinLength = regPassword.length >= 8;
+  const hasUppercase = /[A-Z]/.test(regPassword);
+  const hasLowercase = /[a-z]/.test(regPassword);
+  const hasNumber = /[0-9]/.test(regPassword);
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(regPassword);
+
+  const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecialChar;
+  const passedCriteriaCount = [hasMinLength, hasUppercase, hasLowercase, hasNumber, hasSpecialChar].filter(Boolean).length;
+
+  // Sync mode with context
+  React.useEffect(() => {
+    setMode(authModalMode);
+  }, [authModalMode]);
+
+  if (!isAuthModalOpen) return null;
+
+  // Handle custom photo upload
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, WEBP)', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('ขนาดไฟล์ภาพต้องไม่เกิน 5 MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setSelectedAvatar(result);
+        setIsCustomUploaded(true);
+        showToast('📸 อัปโหลดรูปโปรไฟล์ของคุณเรียบร้อยแล้ว', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName.trim()) {
+      showToast('กรุณากรอกชื่อ-นามสกุล หรือชื่อเรียกในชุมชน', 'error');
+      return;
+    }
+    if (!regPhone.trim()) {
+      showToast('กรุณากรอกเบอร์โทรศัพท์สำหรับติดต่อ', 'error');
+      return;
+    }
+    if (!regAddress.trim()) {
+      showToast('กรุณาระบุที่อยู่ ซอย หรือหมู่บ้านของคุณ', 'error');
+      return;
+    }
+
+    // Strict Password Validation
+    if (!isPasswordValid) {
+      const missingRequirements: string[] = [];
+      if (!hasMinLength) missingRequirements.push('อย่างน้อย 8 ตัวอักษร');
+      if (!hasUppercase) missingRequirements.push('ตัวพิมพ์ใหญ่ (A-Z)');
+      if (!hasLowercase) missingRequirements.push('ตัวพิมพ์เล็ก (a-z)');
+      if (!hasNumber) missingRequirements.push('ตัวเลข (0-9)');
+      if (!hasSpecialChar) missingRequirements.push('สัญลักษณ์พิเศษ (!@#$...)');
+
+      showToast(`รหัสผ่านต้องมี: ${missingRequirements.join(', ')}`, 'error');
+      return;
+    }
+
+    if (!acceptTerms) {
+      showToast('กรุณายอมรับเงื่อนไขการใช้งานของชุมชน', 'error');
+      return;
+    }
+
+    register({
+      name: regName,
+      phone: regPhone,
+      email: regEmail,
+      address: regAddress,
+      villageOrCondo: regVillage,
+      avatar: selectedAvatar
+    });
+  };
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginPhoneOrEmail.trim()) {
+      showToast('กรุณากรอกเบอร์โทรศัพท์หรืออีเมล', 'error');
+      return;
+    }
+
+    const isAdminLogin = loginPhoneOrEmail.toLowerCase().includes('admin') || loginPhoneOrEmail === '080-999-8888';
+    if (isAdminLogin) {
+      setRole('admin');
+    }
+
+    login({
+      phoneOrEmail: loginPhoneOrEmail,
+      password: loginPassword,
+      name: isAdminLogin ? 'แอดมินศูนย์ควบคุมชุมชน' : undefined
+    });
+  };
+
+  const handleQuickLogin = (demoUser: typeof DEMO_USERS[0]) => {
+    if (demoUser.isAdmin) {
+      setRole('admin');
+    } else {
+      setRole('user');
+    }
+    
+    login({
+      phoneOrEmail: demoUser.phone,
+      name: demoUser.name,
+      avatar: demoUser.avatar,
+      address: demoUser.address
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[95] bg-slate-950/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-[32px] max-h-[92vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-4 border-b border-slate-100 bg-white z-10 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm ${
+              mode === 'register' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-900 text-white'
+            }`}>
+              {mode === 'register' ? <UserPlus size={20} /> : <LogIn size={20} />}
+            </div>
+            <div>
+              <h2 className="text-[17px] font-extrabold text-slate-900 leading-tight">
+                {mode === 'register' ? 'ลงทะเบียนสมาชิกใหม่' : 'เข้าสู่ระบบ LocalLink'}
+              </h2>
+              <p className="text-[11.5px] font-medium text-slate-500">
+                {mode === 'register' ? 'สร้างบัญชีเพื่อร่วมพูดคุย ซื้อขาย และแจ้งเหตุ' : 'เข้าถึงข้อมูลและสิทธิประโยชน์ในชุมชนของคุณ'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={closeAuthModal}
+            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="px-5 pt-3 shrink-0">
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/60">
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              className={`py-2 px-3 rounded-xl text-[12.5px] font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                mode === 'register'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <UserPlus size={15} />
+              ลงทะเบียนใหม่
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              className={`py-2 px-3 rounded-xl text-[12.5px] font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                mode === 'login'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LogIn size={15} />
+              เข้าสู่ระบบ
+            </button>
+          </div>
+        </div>
+
+        {/* Body Content */}
+        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+          
+          {mode === 'register' ? (
+            /* REGISTER FORM */
+            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+              
+              {/* Custom Image Upload Section */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                <label className="block text-[12px] font-bold text-slate-800 mb-2.5">
+                  รูปโปรไฟล์ของคุณ <span className="text-emerald-600 font-semibold">(อัปโหลดภาพจริงจากเครื่องได้)</span>
+                </label>
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
+
+                <div className="flex items-center gap-3.5">
+                  {/* Current Selected / Uploaded Avatar */}
+                  <div className="relative shrink-0">
+                    <img 
+                      src={selectedAvatar} 
+                      alt="Avatar preview" 
+                      className="w-16 h-16 rounded-2xl object-cover ring-3 ring-emerald-500/30 shadow-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white transition-transform active:scale-95"
+                      title="เปลี่ยนรูปภาพ"
+                    >
+                      <Camera size={12} />
+                    </button>
+                  </div>
+
+                  {/* Upload Actions & Presets */}
+                  <div className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full py-2 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[12px] font-extrabold border border-slate-300 shadow-sm flex items-center justify-center gap-1.5 transition-all mb-2"
+                    >
+                      <Upload size={14} className="text-emerald-600" />
+                      <span>อัปโหลดรูปถ่ายของคุณ</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                      <span className="text-[10.5px] font-bold text-slate-400 shrink-0">หรือเลือก:</span>
+                      {AVATAR_OPTIONS.slice(0, 4).map((imgUrl, i) => (
+                        <button
+                          type="button"
+                          key={i}
+                          onClick={() => {
+                            setSelectedAvatar(imgUrl);
+                            setIsCustomUploaded(false);
+                          }}
+                          className={`w-7 h-7 rounded-lg overflow-hidden shrink-0 transition-all ${
+                            selectedAvatar === imgUrl && !isCustomUploaded
+                              ? 'ring-2 ring-emerald-500 scale-110' 
+                              : 'opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={imgUrl} alt={`Avatar ${i}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Full Name */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  ชื่อ - นามสกุล หรือ ชื่อเรียกในชุมชน <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <User size={16} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={regName}
+                    onChange={e => setRegName(e.target.value)}
+                    placeholder="เช่น สมพร รักสงบ หรือ น้าแดง ซอย 2"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  เบอร์โทรศัพท์มือถือ <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Phone size={16} />
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    value={regPhone}
+                    onChange={e => setRegPhone(e.target.value)}
+                    placeholder="เช่น 081-234-5678"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">ใช้สำหรับการยืนยันตัวตนและการติดต่อแจ้งเหตุในพื้นที่</p>
+              </div>
+
+              {/* Address / Community */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  ที่อยู่ / ซอย / หมู่บ้าน / คอนโด <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <MapPin size={16} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={regAddress}
+                    onChange={e => setRegAddress(e.target.value)}
+                    placeholder="เช่น บ้านเลขที่ 12/3 ซอย 5 หมู่บ้านพหลโยธิน"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Password with Strong Requirements */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[12px] font-bold text-slate-800">
+                    กำหนดรหัสผ่าน <span className="text-rose-500">*</span>
+                  </label>
+                  {regPassword.length > 0 && (
+                    <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
+                      isPasswordValid 
+                        ? 'bg-emerald-100 text-emerald-700' 
+                        : passedCriteriaCount >= 3 
+                        ? 'bg-amber-100 text-amber-700' 
+                        : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      {isPasswordValid ? '✓ รหัสผ่านปลอดภัย' : `ความสมบูรณ์ ${passedCriteriaCount}/5`}
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={regPassword}
+                    onChange={e => setRegPassword(e.target.value)}
+                    placeholder="เช่น Pass1234@"
+                    className={`w-full pl-10 pr-10 py-2.5 bg-white border rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:outline-none focus:ring-2 font-medium transition-all ${
+                      regPassword.length === 0
+                        ? 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        : isPasswordValid
+                        ? 'border-emerald-500 ring-2 ring-emerald-500/10'
+                        : 'border-amber-400 focus:ring-amber-500/20 focus:border-amber-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+
+                {/* Password Strength Checklist */}
+                <div className="pt-1.5 space-y-1 bg-white p-2.5 rounded-xl border border-slate-200/70">
+                  <p className="text-[11px] font-extrabold text-slate-600 mb-1 flex items-center gap-1">
+                    <ShieldCheck size={13} className={isPasswordValid ? 'text-emerald-600' : 'text-slate-400'} />
+                    เงื่อนไขความปลอดภัยของรหัสผ่าน:
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                    <div className={`flex items-center gap-1.5 ${hasMinLength ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasMinLength ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {hasMinLength ? <Check size={9} strokeWidth={3} /> : <span className="w-1 h-1 bg-slate-400 rounded-full" />}
+                      </div>
+                      <span>อย่างน้อย 8 ตัวอักษร</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 ${hasUppercase ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasUppercase ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {hasUppercase ? <Check size={9} strokeWidth={3} /> : <span className="w-1 h-1 bg-slate-400 rounded-full" />}
+                      </div>
+                      <span>ตัวพิมพ์ใหญ่ (A-Z)</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 ${hasLowercase ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasLowercase ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {hasLowercase ? <Check size={9} strokeWidth={3} /> : <span className="w-1 h-1 bg-slate-400 rounded-full" />}
+                      </div>
+                      <span>ตัวพิมพ์เล็ก (a-z)</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 ${hasNumber ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasNumber ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {hasNumber ? <Check size={9} strokeWidth={3} /> : <span className="w-1 h-1 bg-slate-400 rounded-full" />}
+                      </div>
+                      <span>ตัวเลข (0-9)</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 col-span-2 ${hasSpecialChar ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasSpecialChar ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                        {hasSpecialChar ? <Check size={9} strokeWidth={3} /> : <span className="w-1 h-1 bg-slate-400 rounded-full" />}
+                      </div>
+                      <span>สัญลักษณ์พิเศษ (!, @, #, $, %, ^, &, *, ฯลฯ)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Terms Checkbox */}
+              <div className="flex items-start gap-2.5 pt-1">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={acceptTerms}
+                  onChange={e => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
+                />
+                <label htmlFor="terms" className="text-[11.5px] text-slate-600 leading-tight">
+                  ฉันยินยอมปฏิบัติตามกฎระเบียบของชุมชน และรับทราบว่าข้อมูลจะถูกนำไปใช้เพื่อความปลอดภัยในพื้นที่
+                </label>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={!isPasswordValid}
+                className={`w-full py-3.5 px-4 rounded-2xl text-[14px] font-extrabold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                  isPasswordValid 
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/25 cursor-pointer' 
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <UserPlus size={18} />
+                สมัครสมาชิกและเริ่มต้นใช้งาน
+              </button>
+            </form>
+          ) : (
+            /* LOGIN FORM */
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              
+              {/* Phone or Email */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  เบอร์โทรศัพท์มือถือ หรือ อีเมล <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Phone size={16} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={loginPhoneOrEmail}
+                    onChange={e => setLoginPhoneOrEmail(e.target.value)}
+                    placeholder="เช่น 081-234-5678 หรือ somchai@email.com"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[12px] font-bold text-slate-700">
+                    รหัสผ่าน
+                  </label>
+                  <button 
+                    type="button" 
+                    onClick={() => showToast('ระบบได้ส่งรหัส OTP กู้คืนไปยังเบอร์โทรศัพท์ของคุณแล้ว', 'info')}
+                    className="text-[11px] font-extrabold text-emerald-600 hover:underline"
+                  >
+                    ลืมรหัสผ่าน?
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={loginPassword}
+                    onChange={e => setLoginPassword(e.target.value)}
+                    placeholder="กรอกรหัสผ่านของคุณ"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-[14px] font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                <LogIn size={18} />
+                เข้าสู่ระบบ
+              </button>
+
+              {/* Divider */}
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-white text-slate-400 font-medium">หรือเข้าสู่ระบบด่วน (Quick Demo)</span>
+                </div>
+              </div>
+
+              {/* Demo Quick Accounts */}
+              <div className="space-y-2">
+                <p className="text-[11.5px] font-bold text-slate-500">เลือกโปรไฟล์ตัวอย่างเพื่อเข้าทดสอบทันที:</p>
+                {DEMO_USERS.map((demo, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleQuickLogin(demo)}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left group ${
+                      demo.isAdmin 
+                        ? 'bg-rose-50/70 hover:bg-rose-100/80 border-rose-200 hover:border-rose-300 shadow-sm'
+                        : 'bg-slate-50 hover:bg-emerald-50/60 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative">
+                        <img src={demo.avatar} alt={demo.name} className="w-9 h-9 rounded-xl object-cover" />
+                        {demo.isAdmin && (
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow">
+                            👑
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className={`text-[12.5px] font-extrabold ${demo.isAdmin ? 'text-rose-950 group-hover:text-rose-700' : 'text-slate-900 group-hover:text-emerald-700'}`}>
+                          {demo.name}
+                        </p>
+                        <p className={`text-[10.5px] ${demo.isAdmin ? 'text-rose-700/80' : 'text-slate-500'}`}>
+                          {demo.roleLabel} • {demo.phone}
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight size={15} className={`${demo.isAdmin ? 'text-rose-400 group-hover:text-rose-600' : 'text-slate-400 group-hover:text-emerald-600'} transition-transform group-hover:translate-x-0.5`} />
+                  </button>
+                ))}
+              </div>
+
+            </form>
+          )}
+
+          {/* Security Notice Footer */}
+          <div className="pt-2 text-center">
+            <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
+              <Shield size={13} className="text-emerald-600" />
+              ข้อมูลของคุณได้รับการปกป้องด้วยระบบความปลอดภัยของ LocalLink
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+

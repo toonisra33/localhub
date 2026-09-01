@@ -21,7 +21,10 @@ import {
   AlertCircle,
   PlusCircle,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  UserPlus,
+  User,
+  BarChart3
 } from 'lucide-react';
 import { mockMorningBrief } from '../data';
 import { Alert } from '../types';
@@ -40,12 +43,16 @@ import { LocalHubLogo } from './LocalHubLogo';
 export function HomeFeed() {
   const { role, setOpenAdminModal } = useBroadcast();
   const { 
+    isLoggedIn,
+    userProfile,
+    openAuthModal,
     location, 
     alerts, 
     voteAlert, 
     setActiveTab, 
     unreadNotificationsCount, 
-    showToast 
+    showToast,
+    openLocationPermissionModal
   } = useCommunity();
 
   // Modals state
@@ -149,38 +156,113 @@ export function HomeFeed() {
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-slate-900 animate-pulse" />
               )}
             </button>
+
+            {/* Quick User / Registration Button */}
+            {!isLoggedIn ? (
+              <button
+                onClick={() => openAuthModal('register')}
+                className="h-8 px-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 text-[11px] font-extrabold border border-emerald-400/30 active:scale-95"
+                title="ลงทะเบียนเข้าใช้งาน"
+              >
+                <UserPlus size={13} />
+                <span>ลงทะเบียน</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => setActiveTab('me')}
+                className="w-8 h-8 rounded-xl overflow-hidden ring-2 ring-slate-700 hover:ring-emerald-500 transition-all shrink-0"
+                title={userProfile.name}
+              >
+                <img src={userProfile.avatar} alt={userProfile.name} className="w-full h-full object-cover" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Location Selector */}
-        <div onClick={() => setShowLocationModal(true)} className="cursor-pointer group flex justify-between items-center bg-slate-800/40 hover:bg-slate-800/70 p-2.5 rounded-2xl border border-slate-800/80 transition-all">
-          <div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="inline-flex items-center gap-1 text-emerald-400 text-[10.5px] font-extrabold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                พื้นที่ปัจจุบัน
-              </span>
+        <div className="flex items-center gap-2">
+          <div onClick={() => setShowLocationModal(true)} className="flex-1 cursor-pointer group flex justify-between items-center bg-slate-800/40 hover:bg-slate-800/70 p-2.5 rounded-2xl border border-slate-800/80 transition-all">
+            <div>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="inline-flex items-center gap-1 text-emerald-400 text-[10.5px] font-extrabold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {location.isGps ? 'พิกัด GPS จริง' : 'พื้นที่ปัจจุบัน'}
+                </span>
+                {location.isGps && (
+                  <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[9.5px] font-bold border border-emerald-400/30">
+                    GPS Active
+                  </span>
+                )}
+              </div>
+              
+              <h1 className="text-[17px] font-extrabold tracking-tight flex items-center gap-1.5 text-white group-hover:text-emerald-300 transition-colors">
+                {location.district}, {location.province}
+              </h1>
+              
+              <p className="text-slate-400 text-[11.5px] font-medium mt-0.5 flex items-center gap-1 truncate max-w-[210px]">
+                <MapPin size={11} className="text-emerald-400 shrink-0" />
+                <span>ต.{location.subdistrict} • {location.village}</span>
+              </p>
             </div>
-            
-            <h1 className="text-[18px] font-extrabold tracking-tight flex items-center gap-1.5 text-white group-hover:text-emerald-300 transition-colors">
-              {location.district}, {location.province}
-            </h1>
-            
-            <p className="text-slate-400 text-[11.5px] font-medium mt-0.5 flex items-center gap-1">
-              <MapPin size={11} className="text-emerald-400" />
-              ต.{location.subdistrict} • {location.village}
-            </p>
+
+            <div className="flex items-center gap-1 bg-slate-700/60 group-hover:bg-emerald-500/20 text-slate-300 group-hover:text-emerald-300 text-[11px] font-bold px-2 py-1.5 rounded-xl border border-slate-600/40 group-hover:border-emerald-400/40 transition-colors">
+              <span>เปลี่ยน</span>
+              <ChevronDown size={13} />
+            </div>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-700/60 group-hover:bg-emerald-500/20 text-slate-300 group-hover:text-emerald-300 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border border-slate-600/40 group-hover:border-emerald-400/40 transition-colors">
-            <span>เปลี่ยน</span>
-            <ChevronDown size={13} />
-          </div>
+          {/* Direct GPS Request Button */}
+          <button
+            onClick={() => openLocationPermissionModal()}
+            title="ขออนุญาตระบุพิกัดพื้นที่จริง"
+            className="w-12 h-[68px] bg-gradient-to-b from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl flex flex-col items-center justify-center gap-1 border border-emerald-400/30 shadow-md shadow-emerald-950/30 transition-all active:scale-95 shrink-0"
+          >
+            <Navigation size={18} className="animate-pulse" />
+            <span className="text-[9.5px] font-extrabold leading-none">GPS จริง</span>
+          </button>
         </div>
       </div>
 
+      {/* Admin Quick Control Banner */}
+      {role === 'admin' && (
+        <div className="px-5 -mt-6 mb-8 relative z-20">
+          <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-rose-950 text-white rounded-[24px] p-3.5 shadow-xl border border-rose-500/30 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/30">
+                <BarChart3 size={16} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[12px] font-extrabold text-white truncate flex items-center gap-1.5">
+                  ศูนย์ควบคุมแอดมิน 
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping shrink-0" />
+                </p>
+                <p className="text-[10px] text-slate-300 truncate">ประชากร 4.8k คน • แก้เหตุแล้ว 94%</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setOpenAdminModal(true)}
+                className="py-1.5 px-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-[11px] font-extrabold transition-all shadow-sm flex items-center gap-1"
+                title="ส่งบรอดแคสด่วน"
+              >
+                <Radio size={12} className="animate-pulse" />
+                <span>บรอดแคส</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('admin_dashboard')}
+                className="py-1.5 px-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[11px] font-extrabold border border-white/15 transition-all flex items-center gap-1"
+              >
+                <BarChart3 size={12} className="text-rose-400" />
+                <span>ดูแดชบอร์ด</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Morning Brief - Frosted Modern Card */}
-      <div className="px-5 -mt-6 relative z-20">
+      <div className={`px-5 relative z-20 ${role === 'admin' ? 'mt-0' : '-mt-6'}`}>
         <div className="bg-white/95 backdrop-blur-xl rounded-[28px] p-5 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.07)] border border-slate-200/70">
           <div className="flex items-center justify-between mb-3.5">
             <div className="flex items-center gap-3">

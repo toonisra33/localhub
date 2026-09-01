@@ -6,16 +6,24 @@ import { AroundMeMap } from './components/AroundMeMap';
 import { CommunityFeed } from './components/CommunityFeed';
 import { LocalMarket } from './components/LocalMarket';
 import { UserProfile } from './components/UserProfile';
+import { AdminDashboard } from './components/AdminDashboard';
 import { AiChat } from './components/AiChat';
 import { AdminBroadcastBanner } from './components/AdminBroadcastBanner';
 import { AdminBroadcastModal } from './components/AdminBroadcastModal';
 import { BroadcastProvider, useBroadcast } from './context/BroadcastContext';
 import { CommunityProvider, useCommunity } from './context/CommunityContext';
 import { ToastContainer } from './components/modals/ToastContainer';
+import { AuthModal } from './components/modals/AuthModal';
+import { LocationPermissionModal } from './components/modals/LocationPermissionModal';
 import { Bot, Sparkles } from 'lucide-react';
 
 function AppContent() {
-  const { activeTab, setActiveTab } = useCommunity();
+  const { 
+    activeTab, 
+    setActiveTab, 
+    isLocationPermissionModalOpen, 
+    closeLocationPermissionModal 
+  } = useCommunity();
   const { isBroadcastVisible, activeBroadcast } = useBroadcast();
   const [isAiOpen, setIsAiOpen] = useState(false);
 
@@ -26,6 +34,7 @@ function AppContent() {
       case 'community': return <CommunityFeed />;
       case 'market': return <LocalMarket />;
       case 'me': return <UserProfile />;
+      case 'admin_dashboard': return <AdminDashboard />;
       default: return <HomeFeed />;
     }
   };
@@ -45,7 +54,7 @@ function AppContent() {
       </main>
 
       {/* Floating AI Button - Modern Gradient Orb */}
-      {activeTab !== 'map' && activeTab !== 'me' && (
+      {activeTab !== 'map' && activeTab !== 'me' && activeTab !== 'admin_dashboard' && (
         <button 
           onClick={() => setIsAiOpen(true)}
           className="fixed bottom-24 right-5 w-14 h-14 bg-gradient-to-tr from-slate-900 via-slate-800 to-indigo-950 rounded-2xl flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all text-white z-40 group border border-slate-700/60 modern-glow-emerald"
@@ -71,6 +80,15 @@ function AppContent() {
       
       {/* Admin Broadcast Control Center Modal */}
       <AdminBroadcastModal />
+      
+      {/* User Registration & Login Modal */}
+      <AuthModal />
+      
+      {/* Real GPS Location Permission & Consent Modal */}
+      <LocationPermissionModal 
+        isOpen={isLocationPermissionModalOpen}
+        onClose={closeLocationPermissionModal}
+      />
       
     </div>
   );

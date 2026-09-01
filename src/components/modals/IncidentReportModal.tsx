@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, Droplets, Zap, Construction, Car, ShieldAlert, Camera, MapPin, Sparkles } from 'lucide-react';
+import { X, AlertTriangle, Droplets, Zap, Construction, Car, ShieldAlert, Camera, MapPin, Sparkles, Navigation } from 'lucide-react';
 import { useCommunity } from '../../context/CommunityContext';
 import { Alert } from '../../types';
 
@@ -8,7 +8,7 @@ interface IncidentReportModalProps {
 }
 
 export function IncidentReportModal({ onClose }: IncidentReportModalProps) {
-  const { location, addAlert, showToast } = useCommunity();
+  const { location, addAlert, showToast, openLocationPermissionModal } = useCommunity();
   const [type, setType] = useState<Alert['type']>('flood');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -147,9 +147,22 @@ export function IncidentReportModal({ onClose }: IncidentReportModalProps) {
                 <MapPin size={14} className="text-emerald-600" />
                 <span>ต.{location.subdistrict} • {location.district}</span>
               </div>
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                พิกัดปัจจุบัน
-              </span>
+              <div className="flex items-center gap-1">
+                {location.isGps ? (
+                  <span className="text-[10.5px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300/40">
+                    🎯 พิกัด GPS จริง
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openLocationPermissionModal()}
+                    className="text-[10.5px] font-bold text-emerald-700 bg-white hover:bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1 transition-all"
+                  >
+                    <Navigation size={10} />
+                    <span>ใช้พิกัดจริง</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between text-[11.5px] text-slate-600 pt-1">

@@ -6,7 +6,8 @@ import {
   Location, 
   AppNotification, 
   LocalEvent, 
-  Tab 
+  Tab,
+  UserProfileData
 } from '../types';
 import { 
   initialAlerts, 
@@ -17,17 +18,6 @@ import {
   mockEvents, 
   availableLocations 
 } from '../data';
-
-interface UserProfileData {
-  name: string;
-  phone: string;
-  address: string;
-  bio: string;
-  avatar: string;
-  isVerified: boolean;
-  joinedDate: string;
-  reputationScore: number;
-}
 
 interface ToastInfo {
   id: string;
@@ -42,6 +32,12 @@ interface CommunityContextType {
   location: Location;
   setLocation: (loc: Location) => void;
   availableLocations: Location[];
+  isLocatingGps: boolean;
+  locationPermissionStatus: 'prompt' | 'granted' | 'denied';
+  isLocationPermissionModalOpen: boolean;
+  openLocationPermissionModal: () => void;
+  closeLocationPermissionModal: () => void;
+  requestRealLocation: () => Promise<boolean>;
 
   // Alerts State
   alerts: Alert[];
@@ -69,10 +65,19 @@ interface CommunityContextType {
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
 
-  // User Profile
+  // User Profile & Authentication
+  isLoggedIn: boolean;
   userProfile: UserProfileData;
   updateUserProfile: (data: Partial<UserProfileData>) => void;
   verifyUserAccount: () => void;
+  login: (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }) => boolean;
+  register: (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => void;
+  logout: () => void;
+  isAuthModalOpen: boolean;
+  authModalMode: 'login' | 'register';
+  openAuthModal: (mode?: 'login' | 'register') => void;
+  closeAuthModal: () => void;
+  requireAuth: (actionCallback: () => void, promptMessage?: string) => boolean;
 
   // Toast System
   toasts: ToastInfo[];
@@ -143,26 +148,45 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('locallink_is_logged_in');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [pendingAuthAction, setPendingAuthAction] = useState<(() => void) | null>(null);
+
   const [userProfile, setUserProfile] = useState<UserProfileData>(() => {
     try {
       const saved = localStorage.getItem('locallink_profile');
       return saved ? JSON.parse(saved) : {
+        id: 'user_default',
         name: 'สมชาย รักดี',
         phone: '081-234-5678',
+        email: 'somchai.local@email.com',
         address: 'หมู่บ้านพหลโยธินวิลล่า ซอย 3',
+        villageOrCondo: 'พหลโยธินวิลล่า',
         bio: 'ชาวชุมชนพหลโยธิน สนใจงานจิตอาสาและอาหารการกิน',
-        avatar: 'https://i.pravatar.cc/150?u=me',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
         isVerified: true,
         joinedDate: 'มกราคม 2024',
         reputationScore: 98
       };
     } catch {
       return {
+        id: 'user_default',
         name: 'สมชาย รักดี',
         phone: '081-234-5678',
+        email: 'somchai.local@email.com',
         address: 'หมู่บ้านพหลโยธินวิลล่า ซอย 3',
+        villageOrCondo: 'พหลโยธินวิลล่า',
         bio: 'ชาวชุมชนพหลโยธิน สนใจงานจิตอาสาและอาหารการกิน',
-        avatar: 'https://i.pravatar.cc/150?u=me',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
         isVerified: true,
         joinedDate: 'มกราคม 2024',
         reputationScore: 98
@@ -170,8 +194,110 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  const [isLocatingGps, setIsLocatingGps] = useState(false);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
+  const [isLocationPermissionModalOpen, setIsLocationPermissionModalOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastInfo[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  const openLocationPermissionModal = () => setIsLocationPermissionModalOpen(true);
+  const closeLocationPermissionModal = () => setIsLocationPermissionModalOpen(false);
+
+  // Real GPS Location Request handler
+  const requestRealLocation = async (): Promise<boolean> => {
+    if (!navigator.geolocation) {
+      showToast('อุปกรณ์หรือเบราว์เซอร์ของคุณไม่รองรับการตรวจจับพิกัด GPS', 'error');
+      setLocationPermissionStatus('denied');
+      return false;
+    }
+
+    setIsLocatingGps(true);
+
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const accuracy = Math.round(position.coords.accuracy);
+
+          setLocationPermissionStatus('granted');
+          setIsLocatingGps(false);
+
+          // Reverse geocode or intelligent Thai location matching
+          let matchedDistrict = 'จตุจักร';
+          let matchedSubdistrict = 'ลาดยาว';
+          let matchedProvince = 'กรุงเทพมหานคร';
+          let matchedVillage = `พิกัด GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+
+          // Try reverse geocoding via OpenStreetMap Nominatim with fallback
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`, {
+              signal: controller.signal,
+              headers: { 'Accept-Language': 'th,en' }
+            });
+            clearTimeout(timeoutId);
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.address) {
+                const addr = data.address;
+                matchedProvince = addr.province || addr.state || addr.city || 'กรุงเทพมหานคร';
+                matchedDistrict = addr.city_district || addr.district || addr.suburb || addr.town || addr.county || 'จตุจักร';
+                matchedSubdistrict = addr.subdistrict || addr.neighbourhood || addr.quarter || addr.village || 'ลาดยาว';
+                matchedVillage = addr.road || addr.residential || `ใกล้เคียง (${accuracy} ม.)`;
+              }
+            }
+          } catch {
+            // If offline/timeout, keep smart defaults
+          }
+
+          const realLoc: Location = {
+            province: matchedProvince,
+            district: matchedDistrict,
+            subdistrict: matchedSubdistrict,
+            village: matchedVillage,
+            distance: 0,
+            latitude: lat,
+            longitude: lng,
+            accuracy: accuracy,
+            isGps: true,
+            timestamp: Date.now()
+          };
+
+          setLocation(realLoc);
+          showToast(`🎯 ระบุพิกัด GPS จริงสำเร็จ: ${matchedDistrict}, ${matchedProvince} (ความแม่นยำ ±${accuracy}ม.)`, 'success');
+          resolve(true);
+        },
+        (error) => {
+          setIsLocatingGps(false);
+          let errMsg = 'ไม่สามารถระบุพิกัดตำแหน่งจริงได้';
+          if (error.code === error.PERMISSION_DENIED) {
+            setLocationPermissionStatus('denied');
+            errMsg = 'คุณได้ปฏิเสธการขอเข้าถึงตำแหน่ง (Location Permission Denied)';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errMsg = 'สัญญาณดาวเทียมหรือพิกัดตำแหน่งไม่พร้อมใช้งาน';
+          } else if (error.code === error.TIMEOUT) {
+            errMsg = 'การค้นหาพิกัดตำแหน่งหมดเวลา กรุณาลองใหม่อีกครั้ง';
+          }
+          showToast(errMsg, 'error');
+          resolve(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000
+        }
+      );
+    });
+  };
+
+  // Persistence helpers
+  useEffect(() => {
+    try { localStorage.setItem('locallink_is_logged_in', JSON.stringify(isLoggedIn)); } catch {}
+  }, [isLoggedIn]);
 
   // Persistence helpers
   useEffect(() => {
@@ -395,6 +521,84 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     showToast('🎖️ ยืนยันตัวตนสำเร็จ บัญชีของคุณได้รับสถานะยืนยันแล้ว');
   };
 
+  // Authentication Actions
+  const openAuthModal = (mode: 'login' | 'register' = 'login') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false);
+    setPendingAuthAction(null);
+  };
+
+  const login = (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }): boolean => {
+    setIsLoggedIn(true);
+    setIsAuthModalOpen(false);
+
+    // If custom details were provided during login
+    setUserProfile(prev => ({
+      ...prev,
+      name: credentials.name || prev.name,
+      phone: credentials.phoneOrEmail?.includes('@') ? prev.phone : (credentials.phoneOrEmail || prev.phone),
+      email: credentials.phoneOrEmail?.includes('@') ? credentials.phoneOrEmail : prev.email,
+      avatar: credentials.avatar || prev.avatar,
+      address: credentials.address || prev.address
+    }));
+
+    showToast(`👋 ยินดีต้อนรับกลับ, ${credentials.name || userProfile.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
+    
+    if (pendingAuthAction) {
+      pendingAuthAction();
+      setPendingAuthAction(null);
+    }
+    return true;
+  };
+
+  const register = (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => {
+    const newProfile: UserProfileData = {
+      id: `user_${Date.now()}`,
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      email: data.email?.trim() || `${data.phone.replace(/[^0-9]/g, '')}@locallink.app`,
+      address: data.address.trim(),
+      villageOrCondo: data.villageOrCondo?.trim() || location.village || 'ชุมชนท้องถิ่น',
+      bio: data.bio?.trim() || `สมาชิกใหม่แห่งชุมชน ${location.district}`,
+      avatar: data.avatar || `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 500)}?auto=format&fit=crop&q=80&w=200`,
+      isVerified: false,
+      joinedDate: 'วันนี้',
+      reputationScore: 50
+    };
+
+    setUserProfile(newProfile);
+    setIsLoggedIn(true);
+    setIsAuthModalOpen(false);
+    showToast(`🎉 ยินดีต้อนรับคุณ ${data.name}! สมัครสมาชิกและเข้าสู่ระบบเรียบร้อยแล้ว`, 'success');
+
+    if (pendingAuthAction) {
+      pendingAuthAction();
+      setPendingAuthAction(null);
+    }
+  };
+
+  const logout = () => {
+    setIsLoggedIn(false);
+    showToast('ออกจากระบบเรียบร้อยแล้ว เข้าสู่โหมดผู้เยี่ยมชม', 'info');
+  };
+
+  const requireAuth = (actionCallback: () => void, promptMessage?: string): boolean => {
+    if (isLoggedIn) {
+      actionCallback();
+      return true;
+    }
+    setPendingAuthAction(() => actionCallback);
+    if (promptMessage) {
+      showToast(promptMessage, 'info');
+    }
+    openAuthModal('register');
+    return false;
+  };
+
   return (
     <CommunityContext.Provider
       value={{
@@ -403,6 +607,12 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         location,
         setLocation,
         availableLocations,
+        isLocatingGps,
+        locationPermissionStatus,
+        isLocationPermissionModalOpen,
+        openLocationPermissionModal,
+        closeLocationPermissionModal,
+        requestRealLocation,
         alerts,
         addAlert,
         voteAlert,
@@ -419,9 +629,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         unreadNotificationsCount,
         markNotificationRead,
         clearAllNotifications,
+        isLoggedIn,
         userProfile,
         updateUserProfile,
         verifyUserAccount,
+        login,
+        register,
+        logout,
+        isAuthModalOpen,
+        authModalMode,
+        openAuthModal,
+        closeAuthModal,
+        requireAuth,
         toasts,
         showToast,
         removeToast,
