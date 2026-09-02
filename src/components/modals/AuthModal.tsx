@@ -175,6 +175,7 @@ export function AuthModal() {
       name: regName,
       phone: regPhone,
       email: regEmail,
+      password: regPassword,
       address: fullAddress,
       villageOrCondo: regVillage,
       avatar: selectedAvatar

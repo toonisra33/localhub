@@ -85,7 +85,7 @@ interface CommunityContextType {
   verifyUserAccount: () => void;
   login: (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }) => boolean;
   loginWithGoogle: () => Promise<boolean>;
-  register: (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => void;
+  register: (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => void;
   logout: () => void;
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register';
@@ -693,11 +693,43 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   };
 
   const login = (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }): boolean => {
-    setIsLoggedIn(true);
-    setIsAuthModalOpen(false);
-
     const isAdmin = isAuthorizedAdminEmail(credentials.phoneOrEmail);
     const assignedRole = isAdmin ? 'admin' : 'user';
+
+    if (!isAdmin) {
+      try {
+        const existingUsersRaw = localStorage.getItem('locallink_users');
+        const existingUsers = existingUsersRaw ? JSON.parse(existingUsersRaw) : [];
+        const user = existingUsers.find((u: any) => 
+          (u.email === credentials.phoneOrEmail || u.phone === credentials.phoneOrEmail) &&
+          u.password === credentials.password
+        );
+
+        if (!user) {
+          showToast('เบอร์โทรศัพท์ อีเมล หรือรหัสผ่านไม่ถูกต้อง (ยังไม่ได้ลงทะเบียน)', 'error');
+          return false;
+        }
+
+        setUserProfile(user);
+        setIsLoggedIn(true);
+        setIsAuthModalOpen(false);
+        localStorage.setItem('locallink_user_role', assignedRole);
+        
+        showToast(`👋 ยินดีต้อนรับกลับ, ${user.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
+        
+        if (pendingAuthAction) {
+          pendingAuthAction();
+          setPendingAuthAction(null);
+        }
+        return true;
+      } catch {
+        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+        return false;
+      }
+    }
+
+    setIsLoggedIn(true);
+    setIsAuthModalOpen(false);
 
     try {
       localStorage.setItem('locallink_user_role', assignedRole);
@@ -720,8 +752,6 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
     if (isAdmin) {
       showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบ (${credentials.phoneOrEmail})! ได้รับสิทธิ์แอดมินเรียบร้อยแล้ว`, 'success');
-    } else {
-      showToast(`👋 ยินดีต้อนรับกลับ, ${credentials.name || userProfile.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
     }
     
     if (pendingAuthAction) {
@@ -780,15 +810,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = (data: { name: string; phone: string; email?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => {
+  const register = (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => {
     const isAdmin = isAuthorizedAdminEmail(data.email);
     const assignedRole = isAdmin ? 'admin' : 'user';
 
-    try {
-      localStorage.setItem('locallink_user_role', assignedRole);
-    } catch {}
-
-    const newProfile: UserProfileData = {
+    const newProfile: UserProfileData & { password?: string } = {
       id: `user_${Date.now()}`,
       name: data.name.trim(),
       phone: data.phone.trim(),
@@ -797,11 +823,25 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       villageOrCondo: data.villageOrCondo?.trim() || location.village || 'ชุมชนท้องถิ่น',
       bio: data.bio?.trim() || `สมาชิกใหม่แห่งชุมชน ${location.district}`,
       avatar: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-      isVerified: isAdmin,
+      isVerified: true,
       joinedDate: 'วันนี้',
       reputationScore: isAdmin ? 100 : 50,
-      role: assignedRole
+      role: assignedRole,
+      password: data.password
     };
+
+    try {
+      localStorage.setItem('locallink_user_role', assignedRole);
+      
+      if (!isAdmin) {
+        const existingUsersRaw = localStorage.getItem('locallink_users');
+        const existingUsers = existingUsersRaw ? JSON.parse(existingUsersRaw) : [];
+        existingUsers.push(newProfile);
+        localStorage.setItem('locallink_users', JSON.stringify(existingUsers));
+      }
+      
+      localStorage.setItem('locallink_profile', JSON.stringify(newProfile));
+    } catch {}
 
     setUserProfile(newProfile);
     setIsLoggedIn(true);
