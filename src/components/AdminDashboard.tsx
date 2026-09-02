@@ -28,8 +28,14 @@ import {
   Layers,
   Sparkles,
   Award,
-  BellRing
+  BellRing,
+  Smartphone,
+  Image as ImageIcon,
+  ExternalLink
 } from 'lucide-react';
+import playStoreIcon from '../assets/images/app_icon_playstore_1788337604445.jpg';
+import featureGraphic from '../assets/images/feature_graphic_playstore_1788337626922.jpg';
+import storeScreenshot from '../assets/images/store_screenshot_mockup_1788337647560.jpg';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -129,7 +135,7 @@ export function AdminDashboard() {
   } = useBroadcast();
 
   const [timeRange, setTimeRange] = useState<'7d' | '30d'>('7d');
-  const [activeView, setActiveView] = useState<'overview' | 'users' | 'features' | 'incidents' | 'logs'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'users' | 'features' | 'incidents' | 'logs' | 'store_assets'>('overview');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
@@ -253,6 +259,7 @@ export function AdminDashboard() {
         <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-1">
           {[
             { id: 'overview', label: '📊 ภาพรวมสถิติ', icon: TrendingUp },
+            { id: 'store_assets', label: '🎨 รูปภาพ Play Store', icon: Smartphone },
             { id: 'users', label: '👥 ประชากรผู้ใช้', icon: Users },
             { id: 'features', label: '⚡ ฟีเจอร์ยอดนิยม', icon: Activity },
             { id: 'incidents', label: '🚨 รายงานเตือนภัย', icon: AlertTriangle },
@@ -772,6 +779,198 @@ export function AdminDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* VIEW 6: GOOGLE PLAY STORE LISTING ASSETS */}
+        {activeView === 'store_assets' && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            
+            {/* Header info banner */}
+            <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-slate-950 text-white p-5 rounded-3xl border border-slate-800 shadow-md">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                  <Smartphone size={20} />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-extrabold text-white leading-tight">
+                    ชุดภาพกราฟิก Google Play Store (Store Listing Assets)
+                  </h3>
+                  <p className="text-[11.5px] text-slate-300 font-medium">
+                    กราฟิกมาตรฐานตามข้อกำหนดของ Google Play Console พร้อมสำหรับส่งขึ้นสโตร์
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 flex-wrap">
+                <span className="inline-flex items-center gap-1 bg-slate-800/90 text-emerald-400 px-2.5 py-1 rounded-xl border border-slate-700">
+                  <CheckCircle2 size={12} /> ขนาดและสัดส่วนตรงตามเกณฑ์
+                </span>
+                <span className="inline-flex items-center gap-1 bg-slate-800/90 text-sky-400 px-2.5 py-1 rounded-xl border border-slate-700">
+                  <ShieldCheck size={12} /> สไตล์ภาพโมเดิร์น & ชัดเจน
+                </span>
+              </div>
+            </div>
+
+            {/* 1. App Icon Asset */}
+            <div className="bg-white p-4.5 rounded-3xl border border-slate-200/90 shadow-sm space-y-3.5">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Award size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-[14.5px] font-extrabold text-slate-900">1. ไอคอนแอพ (App Icon)</h4>
+                    <p className="text-[11px] text-slate-400 font-medium">ข้อกำหนด: 512 x 512 px (อัตราส่วน 1:1, 32-bit PNG/JPG)</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10.5px] font-extrabold rounded-full">
+                  1:1 Ratio
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-900/95 p-4 rounded-2xl border border-slate-800">
+                <div className="relative group shrink-0">
+                  <img 
+                    src={playStoreIcon} 
+                    alt="Play Store App Icon" 
+                    className="w-28 h-28 rounded-[24px] object-cover shadow-xl ring-2 ring-emerald-500/40"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-black/40 rounded-[24px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold">
+                    ไอคอนหลัก
+                  </div>
+                </div>
+
+                <div className="flex-1 space-y-2 text-slate-300 text-[11.5px] w-full">
+                  <div className="font-extrabold text-white text-[13px] flex items-center gap-1.5">
+                    <span>LocalHub Community Pin Icon</span>
+                  </div>
+                  <p className="text-slate-400 leading-relaxed text-[11px]">
+                    ดีไซน์หมุดแผนที่เรดาร์ผสมผสานโครงข่ายการเชื่อมต่อชุมชน สีเขียวมรกตและสีฟ้าอมเขียว (Emerald & Teal Gradient) บนพื้นหลัง Dark Obsidian สะท้อนความเป็นผู้นำด้านเทคโนโลยีชุมชน
+                  </p>
+                  <div className="pt-1 flex items-center gap-2">
+                    <a 
+                      href={playStoreIcon} 
+                      download="localhub_app_icon_512x512.jpg" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Download size={13} />
+                      บันทึกภาพไอคอน
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Feature Graphic Banner Asset */}
+            <div className="bg-white p-4.5 rounded-3xl border border-slate-200/90 shadow-sm space-y-3.5">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                    <ImageIcon size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-[14.5px] font-extrabold text-slate-900">2. ภาพปกหน้าร้าน (Feature Graphic Banner)</h4>
+                    <p className="text-[11px] text-slate-400 font-medium">ข้อกำหนด: 1024 x 500 px (อัตราส่วน 16:9, หน้าแบนเนอร์หลัก Play Store)</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 bg-teal-100 text-teal-800 text-[10.5px] font-extrabold rounded-full">
+                  16:9 Banner
+                </span>
+              </div>
+
+              <div className="bg-slate-900/95 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <div className="relative overflow-hidden rounded-xl border border-slate-700/60 shadow-lg">
+                  <img 
+                    src={featureGraphic} 
+                    alt="Play Store Feature Graphic Banner" 
+                    className="w-full h-auto object-cover max-h-[220px]"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11.5px]">
+                  <p className="text-slate-400 text-[11px] leading-relaxed">
+                    ภาพปกโปรโมตด้านบนสุดของ Play Store แสดงบรรยากาศชุมชน แผนที่ และชีวิตประจำวันของลูกบ้าน
+                  </p>
+                  <a 
+                    href={featureGraphic} 
+                    download="localhub_feature_graphic_1024x500.jpg" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-xs shrink-0"
+                  >
+                    <Download size={13} />
+                    บันทึกภาพแบนเนอร์ปก
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Screenshots Mockup Asset */}
+            <div className="bg-white p-4.5 rounded-3xl border border-slate-200/90 shadow-sm space-y-3.5">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                    <Smartphone size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-[14.5px] font-extrabold text-slate-900">3. สกรีนช็อตนำเสนอแอพ (Screenshots Showcase)</h4>
+                    <p className="text-[11px] text-slate-400 font-medium">ข้อกำหนด: 1080 x 1920+ px (อัตราส่วน 9:16 แนวตั้ง สำหรับมือถือ)</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 bg-sky-100 text-sky-800 text-[10.5px] font-extrabold rounded-full">
+                  9:16 Vertical
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-900/95 p-4 rounded-2xl border border-slate-800">
+                <div className="w-44 shrink-0 overflow-hidden rounded-2xl border-2 border-slate-700 shadow-2xl">
+                  <img 
+                    src={storeScreenshot} 
+                    alt="Play Store Screenshot Mockup" 
+                    className="w-full h-auto object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+
+                <div className="flex-1 space-y-3 text-slate-300 text-[11.5px]">
+                  <div className="font-extrabold text-white text-[13px]">
+                    ตัวอย่างพรีวิวหน้าจอการใช้งานจริง
+                  </div>
+                  <ul className="space-y-1.5 text-slate-400 text-[11px]">
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                      <span>เรดาร์แผนที่สำรวจสิ่งรอบตัว (Around Me Radar)</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                      <span>ตลาดซื้อขายสินค้าและบริการของเพื่อนบ้าน</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                      <span>ระบบแจ้งเตือนเหตุฉุกเฉินและบรอดแคสจากผู้นำชุมชน</span>
+                    </li>
+                  </ul>
+
+                  <div className="pt-2">
+                    <a 
+                      href={storeScreenshot} 
+                      download="localhub_playstore_screenshot.jpg" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 transition-all shadow-xs inline-flex"
+                    >
+                      <Download size={13} />
+                      บันทึกภาพสกรีนช็อต
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
 
