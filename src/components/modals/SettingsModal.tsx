@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Settings, Bell, Shield, Moon, Globe, Trash2, RefreshCw, Radio, UserPlus, LogIn, LogOut, UserCheck } from 'lucide-react';
+import { X, Settings, Bell, Shield, Moon, Globe, Trash2, RefreshCw, Radio, UserPlus, LogIn, LogOut, UserCheck, ShieldCheck, FileText, ExternalLink } from 'lucide-react';
 import { useBroadcast } from '../../context/BroadcastContext';
 import { useCommunity } from '../../context/CommunityContext';
 import { isAuthorizedAdminEmail } from '../../lib/firebase';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -14,6 +15,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [allowNotifications, setAllowNotifications] = useState(true);
   const [emergencyAlertsOnly, setEmergencyAlertsOnly] = useState(false);
   const [radiusKm, setRadiusKm] = useState('5');
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const isAuthorizedAdmin = isLoggedIn && isAuthorizedAdminEmail(userProfile?.email);
 
@@ -233,19 +235,55 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             />
           </div>
 
+          {/* Privacy Policy & Legal */}
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
+            <h4 className="font-extrabold text-slate-900 text-[13.5px] flex items-center gap-1.5">
+              <ShieldCheck size={16} className="text-emerald-600" />
+              <span>ความปลอดภัยและนโยบาย</span>
+            </h4>
+            <p className="text-[11.5px] text-slate-500">
+              ข้อกำหนดการคุ้มครองข้อมูลส่วนบุคคลและมาตรฐาน Google Play Store
+            </p>
+            <div className="pt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPrivacyModal(true)}
+                className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[12px] font-extrabold border border-slate-200 shadow-xs flex items-center justify-center gap-1.5 transition-all"
+              >
+                <FileText size={14} className="text-emerald-600" />
+                <span>นโยบายความเป็นส่วนตัว</span>
+              </button>
+              <a
+                href="/privacy.html"
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-600 rounded-xl text-[12px] font-bold border border-slate-200 shadow-xs flex items-center justify-center gap-1 transition-all"
+                title="เปิดในแท็บใหม่"
+              >
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          </div>
+
           {/* Reset Demo */}
-          <div className="pt-2">
+          <div className="pt-1">
             <button
               type="button"
               onClick={handleResetDemoData}
-              className="w-full py-3 rounded-2xl border border-rose-200 text-rose-600 bg-rose-50/50 hover:bg-rose-50 font-bold text-[13px] flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-2.5 rounded-2xl border border-rose-200 text-rose-600 bg-rose-50/50 hover:bg-rose-50 font-bold text-[12px] flex items-center justify-center gap-2 transition-colors"
             >
-              <RefreshCw size={15} />
+              <RefreshCw size={14} />
               ล้างแคชและรีเซ็ตข้อมูลทดสอบ (Reset Demo Data)
             </button>
           </div>
 
         </div>
+
+        {/* Privacy Policy Modal */}
+        <PrivacyPolicyModal 
+          isOpen={showPrivacyModal} 
+          onClose={() => setShowPrivacyModal(false)} 
+        />
 
       </div>
     </div>

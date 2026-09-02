@@ -40,6 +40,7 @@ import { CreatePostModal } from './modals/CreatePostModal';
 import { PostDetailCommentsModal } from './modals/PostDetailCommentsModal';
 import { AddProductModal } from './modals/AddProductModal';
 import { ProductDetailModal } from './modals/ProductDetailModal';
+import { PrivacyPolicyModal } from './modals/PrivacyPolicyModal';
 import { LocalHubLogo } from './LocalHubLogo';
 import { PostCard } from './PostCard';
 import { SafeImage } from './SafeImage';
@@ -78,6 +79,7 @@ export function UserProfile() {
 
   // Modals state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -885,10 +887,23 @@ export function UserProfile() {
           </div>
         )}
 
+        {/* Legal & Privacy Policy Link */}
+        <div className="pt-2 pb-1 text-center">
+          <button
+            type="button"
+            onClick={() => setShowPrivacyModal(true)}
+            className="text-[11.5px] font-bold text-slate-400 hover:text-emerald-700 inline-flex items-center gap-1 transition-colors"
+          >
+            <ShieldCheck size={13} className="text-emerald-600" />
+            <span>นโยบายความเป็นส่วนตัว (Privacy Policy)</span>
+          </button>
+        </div>
+
       </div>
 
       {/* Modals */}
       {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+      <PrivacyPolicyModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)} />
       {showEditProfileModal && <EditProfileModal onClose={() => setShowEditProfileModal(false)} />}
       {showVerificationModal && <IdVerificationModal onClose={() => setShowVerificationModal(false)} />}
       {showLocationModal && <LocationPickerModal onClose={() => setShowLocationModal(false)} />}

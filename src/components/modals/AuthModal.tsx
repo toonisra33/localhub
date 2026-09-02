@@ -27,6 +27,7 @@ import { useBroadcast } from '../../context/BroadcastContext';
 import { isAuthorizedAdminEmail, ROOT_ADMIN_EMAILS } from '../../lib/firebase';
 import { LocalHubLogo } from '../LocalHubLogo';
 import { useThaiAddress } from '../../hooks/useThaiAddress';
+import { PrivacyPolicyModal } from './PrivacyPolicyModal';
 
 export function AuthModal() {
   const { 
@@ -42,6 +43,7 @@ export function AuthModal() {
   } = useCommunity();
   const { setRole } = useBroadcast();
   const [isSigningInGoogle, setIsSigningInGoogle] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const [mode, setMode] = useState<'login' | 'register'>(authModalMode);
   const [showPassword, setShowPassword] = useState(false);
@@ -629,7 +631,17 @@ export function AuthModal() {
                   className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
                 />
                 <label htmlFor="terms" className="text-[11.5px] text-slate-600 leading-tight">
-                  ฉันยินยอมปฏิบัติตามกฎระเบียบของชุมชน และรับทราบว่าข้อมูลจะถูกนำไปใช้เพื่อความปลอดภัยในพื้นที่
+                  ฉันยินยอมปฏิบัติตามกฎระเบียบของชุมชน และยอมรับ{' '}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowPrivacyModal(true);
+                    }}
+                    className="text-emerald-600 font-extrabold hover:underline"
+                  >
+                    นโยบายความเป็นส่วนตัว (Privacy Policy)
+                  </button>
                 </label>
               </div>
 
@@ -745,6 +757,12 @@ export function AuthModal() {
           </div>
 
         </div>
+
+        {/* Privacy Policy Modal */}
+        <PrivacyPolicyModal 
+          isOpen={showPrivacyModal} 
+          onClose={() => setShowPrivacyModal(false)} 
+        />
 
       </div>
     </div>

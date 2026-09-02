@@ -31,7 +31,8 @@ import {
   BellRing,
   Smartphone,
   Image as ImageIcon,
-  ExternalLink
+  ExternalLink,
+  Copy
 } from 'lucide-react';
 import playStoreIcon from '../assets/images/app_icon_playstore_1788337604445.jpg';
 import featureGraphic from '../assets/images/feature_graphic_playstore_1788337626922.jpg';
@@ -968,6 +969,60 @@ export function AdminDashboard() {
                     >
                       <Download size={13} />
                       บันทึกภาพสกรีนช็อต
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Privacy Policy URL for Play Console */}
+            <div className="bg-white p-4.5 rounded-3xl border border-slate-200/90 shadow-sm space-y-3.5">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-[14.5px] font-extrabold text-slate-900">4. นโยบายความเป็นส่วนตัว (Privacy Policy URL)</h4>
+                    <p className="text-[11px] text-slate-400 font-medium">ข้อกำหนดสำคัญ: ต้องระบุ URL สาธารณะใน Google Play Console (เนื้อหาของแอป)</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10.5px] font-extrabold rounded-full">
+                  Public URL
+                </span>
+              </div>
+
+              <div className="bg-slate-900/95 p-4 rounded-2xl border border-slate-800 space-y-3 text-slate-300">
+                <p className="text-slate-400 text-[11.5px] leading-relaxed">
+                  หน้าเว็บนโยบายความเป็นส่วนตัวอย่างเป็นทางการของ LocalHub ครอบคลุมการขอสิทธิ์พิกัด GPS (ACCESS_FINE_LOCATION), รูปภาพ, การจัดเก็บข้อมูลบน Firebase และนโยบายการขอลบข้อมูลตามกฎระเบียบของ Google Play Store
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={`${window.location.origin}/privacy.html`} 
+                    className="w-full bg-transparent text-[11.5px] text-emerald-400 font-mono outline-none truncate px-1"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/privacy.html`);
+                        alert('คัดลอก Privacy Policy URL เรียบร้อยแล้ว!');
+                      }}
+                      className="flex-1 sm:flex-none px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Copy size={13} />
+                      คัดลอก URL
+                    </button>
+                    <a
+                      href="/privacy.html"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border border-slate-700"
+                    >
+                      <ExternalLink size={13} />
+                      เปิดหน้าเว็บ
                     </a>
                   </div>
                 </div>
