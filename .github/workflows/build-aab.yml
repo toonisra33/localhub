@@ -51,22 +51,70 @@ jobs:
           mkdir -p android-build
           cd android-build
 
-          # 1. Initialize project non-interactively
-          yes "" | bubblewrap init --manifest=https://localhub-69fbe.web.app/manifest.json --skipPwaValidation || true
+          # Create KeyStore beforehand
+          keytool -genkey -v -keystore android.keystore -alias localhub -keyalg RSA -keysize 2048 -validity 10000 -storepass localhub123456 -keypass localhub123456 -dname "CN=Toon Isra, OU=LocalHub, O=LocalHub, L=Bangkok, ST=Bangkok, C=TH"
 
-          # 2. Build Release Bundle (.AAB) directly with gradle
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            ./gradlew bundleRelease assembleRelease
-          else
-            bubblewrap build --skipPwaValidation --keyStorePath=android.keystore --keyStorePassword=localhub123456 --keyName=android --keyPassword=localhub123456
-          fi
+          # Create twa-manifest.json directly so bubblewrap does not ask any questions
+          cat << 'EOF' > twa-manifest.json
+          {
+            "packageId": "com.toon.localhub",
+            "host": "localhub-69fbe.web.app",
+            "name": "LocalHub",
+            "launcherName": "LocalHub",
+            "themeColor": "#10B981",
+            "themeColorDark": "#111827",
+            "navigationColor": "#111827",
+            "navigationColorDark": "#111827",
+            "navigationDividerColor": "#000000",
+            "navigationDividerColorDark": "#000000",
+            "backgroundColor": "#111827",
+            "enableNotifications": true,
+            "startUrl": "/",
+            "iconUrl": "https://raw.githubusercontent.com/toonisra33/localhub/main/public/icon-512.png",
+            "maskableIconUrl": "https://raw.githubusercontent.com/toonisra33/localhub/main/public/icon-512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signingKey": {
+              "path": "./android.keystore",
+              "alias": "localhub"
+            },
+            "appVersionName": "1.0.0",
+            "appVersionCode": 1,
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://localhub-69fbe.web.app/manifest.json",
+            "fallbackType": "customtabs",
+            "features": {
+              "locationDelegation": {
+                "enabled": true
+              },
+              "playBilling": {
+                "enabled": false
+              }
+            },
+            "alphaDependencies": {
+              "enabled": false
+            },
+            "enableSiteSettingsShortcut": true,
+            "isChromeOSOnly": false,
+            "fullScopeUrl": "https://localhub-69fbe.web.app/",
+            "minSdkVersion": 21,
+            "orientation": "default",
+            "fingerprints": []
+          }
+          EOF
+
+          # Generate Gradle project from manifest
+          bubblewrap update --skipPwaValidation
+
+          # Compile AAB Bundle with Gradle
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease
 
       - name: Upload Android App Bundle (.AAB) Artifact
         uses: actions/upload-artifact@v4
         with:
           name: LocalHub-Android-Bundle-aab
           path: |
-            android-build/**/*.aab
-            android-build/**/*.apk
-            android-build/*.keystore
+            android-build/app/build/outputs/bundle/release/*.aab
+            android-build/app/build/outputs/apk/release/*.apk
+            android-build/android.keystore
