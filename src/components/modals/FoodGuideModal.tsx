@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Navigation, Phone, Star, MapPin, Clock, Utensils, Search, ExternalLink } from 'lucide-react';
 import { mockShops } from '../../data';
 import { useCommunity } from '../../context/CommunityContext';
+import { SafeImage } from '../SafeImage';
 
 interface FoodGuideModalProps {
   onClose: () => void;
@@ -131,12 +132,13 @@ export function FoodGuideModal({ onClose }: FoodGuideModalProps) {
                     })}
                     className="relative w-20 h-20 rounded-xl overflow-hidden ring-1 ring-slate-150 shrink-0 cursor-pointer group"
                   >
-                    <img
+                    <SafeImage
                       src={place.image}
                       alt={place.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      category={place.category}
+                      className="w-full h-full group-hover:scale-110 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none z-10">
                       <span className="text-white text-[9px] font-bold">ขยาย</span>
                     </div>
                   </div>

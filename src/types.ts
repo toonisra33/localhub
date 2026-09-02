@@ -63,8 +63,23 @@ export interface PostComment {
     name: string;
     avatar: string;
   };
+  authorUid?: string;
   content: string;
   time: string;
+  createdAt?: number;
+}
+
+export interface CheckInLocation {
+  placeName: string;
+  subdistrict?: string;
+  district?: string;
+  province?: string;
+  country?: string;
+  latitude: number;
+  longitude: number;
+  category?: string; // e.g. 'restaurant' | 'cafe' | 'landmark' | 'shop' | 'travel' | 'event' | 'general'
+  address?: string;
+  isGps?: boolean;
 }
 
 export interface Post {
@@ -73,6 +88,7 @@ export interface Post {
     name: string;
     avatar: string;
   };
+  authorUid?: string;
   content: string;
   location: Location;
   time: string;
@@ -80,9 +96,26 @@ export interface Post {
   comments: number;
   image?: string;
   images?: string[];
+  videoUrl?: string;
   isLiked?: boolean;
+  likedBy?: string[];
   category?: string;
   commentList?: PostComment[];
+  checkIn?: CheckInLocation;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface UserSessionLog {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  loginMethod: 'google' | 'password' | 'anonymous';
+  ipOrLocation?: string;
+  userAgent?: string;
+  timestamp: number;
+  timeStr: string;
 }
 
 export interface Product {

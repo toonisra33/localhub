@@ -34,6 +34,7 @@ import { MapFilterModal } from './modals/MapFilterModal';
 import { PlaceDetailModal, MapPoint } from './modals/PlaceDetailModal';
 import { AddCustomPinModal } from './modals/AddCustomPinModal';
 import { LocalHubLogo } from './LocalHubLogo';
+import { MapSearchAutocomplete, AutocompleteResult } from './MapSearchAutocomplete';
 
 // Helper function to calculate geodesic distance in km/meters
 function calculateDistanceStr(lat1: number, lon1: number, lat2: number, lon2: number): string {
@@ -179,7 +180,10 @@ export function AroundMeMap() {
     openLocationPermissionModal, 
     location, 
     isLocatingGps,
-    requestRealLocation 
+    requestRealLocation,
+    posts,
+    targetMapLocation,
+    setTargetMapLocation
   } = useCommunity();
 
   const userEnvApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || '';
@@ -235,9 +239,41 @@ export function AroundMeMap() {
     }
   }, [customPins]);
 
-  // Combine default places with custom pins and update real-time geodesic distance
+  // Jump to target map location when requested from outside (e.g. from a post check-in click)
+  useEffect(() => {
+    if (targetMapLocation) {
+      setMapCenter({ lat: targetMapLocation.lat, lng: targetMapLocation.lng });
+      if (targetMapLocation.zoom) {
+        setMapZoom(targetMapLocation.zoom);
+      }
+      if (targetMapLocation.label) {
+        showToast(`📍 ปักหมุด: ${targetMapLocation.label}`);
+      }
+    }
+  }, [targetMapLocation, showToast]);
+
+  // Convert check-in posts into map pins
+  const checkInMapPoints: MapPoint[] = useMemo(() => {
+    return posts
+      .filter(p => p.checkIn && p.checkIn.latitude && p.checkIn.longitude)
+      .map(p => ({
+        id: `post_checkin_${p.id}`,
+        name: `📍 ${p.checkIn!.placeName}`,
+        type: (p.checkIn!.category as any) || 'custom',
+        lat: p.checkIn!.latitude,
+        lng: p.checkIn!.longitude,
+        distance: calculateDistanceStr(location.latitude || mapCenter.lat, location.longitude || mapCenter.lng, p.checkIn!.latitude, p.checkIn!.longitude),
+        category: p.checkIn!.category === 'restaurant' ? 'ร้านอาหาร/คาเฟ่' : p.checkIn!.category === 'shop' ? 'ร้านค้า/ตลาด' : 'โพสต์เช็คอินชุมชน',
+        rating: 5.0,
+        description: `💬 โพสต์โดย ${p.author.name}: "${p.content.slice(0, 90)}${p.content.length > 90 ? '...' : ''}"`,
+        image: p.images?.[0] || p.image,
+        isCustomPin: true
+      }));
+  }, [posts, location.latitude, location.longitude, mapCenter.lat, mapCenter.lng]);
+
+  // Combine default places with custom pins and check-in posts, updating real-time geodesic distance
   const allMapPoints = useMemo(() => {
-    const combined = [...INITIAL_REAL_PLACES, ...customPins];
+    const combined = [...INITIAL_REAL_PLACES, ...customPins, ...checkInMapPoints];
     const userLat = location.latitude || mapCenter.lat;
     const userLng = location.longitude || mapCenter.lng;
 
@@ -245,7 +281,7 @@ export function AroundMeMap() {
       ...pt,
       distance: calculateDistanceStr(userLat, userLng, pt.lat, pt.lng)
     }));
-  }, [customPins, location.latitude, location.longitude, mapCenter.lat, mapCenter.lng]);
+  }, [customPins, checkInMapPoints, location.latitude, location.longitude, mapCenter.lat, mapCenter.lng]);
 
   const categories = [
     { id: 'all', label: 'ทั้งหมด', icon: '🌐' },
@@ -265,13 +301,17 @@ export function AroundMeMap() {
   ];
 
   const landmarkPresets = [
-    { name: '📍 ชุมชนพหลโยธิน - บางซื่อ', lat: 13.8305, lng: 100.5695 },
-    { name: '📍 สยาม - ปทุมวัน', lat: 13.7462, lng: 100.5348 },
-    { name: '📍 อารีย์ - พญาไท', lat: 13.7801, lng: 100.5442 },
-    { name: '📍 จตุจักร - ลาดพร้าว', lat: 13.8032, lng: 100.5539 },
-    { name: '📍 สุขุมวิท - อโศก', lat: 13.7372, lng: 100.5604 },
-    { name: '📍 เชียงใหม่ (นิมมาน)', lat: 18.7961, lng: 98.9686 },
-    { name: '📍 ภูเก็ต (เมืองเก่า)', lat: 7.8841, lng: 98.3904 },
+    { name: '🌍 ภาพรวมโลก (World View)', lat: 20.0, lng: 0.0, zoom: 2 },
+    { name: '🇹🇭 กรุงเทพฯ (พหลโยธิน)', lat: 13.8305, lng: 100.5695, zoom: 15 },
+    { name: '🇯🇵 โตเกียว (Tokyo)', lat: 35.6762, lng: 139.6503, zoom: 13 },
+    { name: '🇫🇷 ปารีส (Paris)', lat: 48.8566, lng: 2.3522, zoom: 13 },
+    { name: '🇺🇸 นิวยอร์ก (New York)', lat: 40.7128, lng: -74.0060, zoom: 13 },
+    { name: '🇬🇧 ลอนดอน (London)', lat: 51.5074, lng: -0.1278, zoom: 13 },
+    { name: '🇸🇬 สิงคโปร์ (Singapore)', lat: 1.3521, lng: 103.8198, zoom: 13 },
+    { name: '🇦🇺 ซิดนีย์ (Sydney)', lat: -33.8688, lng: 151.2093, zoom: 13 },
+    { name: '🇦🇪 ดูไบ (Dubai)', lat: 25.2048, lng: 55.2708, zoom: 13 },
+    { name: '📍 เชียงใหม่ (นิมมาน)', lat: 18.7961, lng: 98.9686, zoom: 15 },
+    { name: '📍 ภูเก็ต (เมืองเก่า)', lat: 7.8841, lng: 98.3904, zoom: 15 },
   ];
 
   // Filter map points
@@ -334,7 +374,7 @@ export function AroundMeMap() {
   // Jump to landmark
   const handleJumpToLandmark = (preset: typeof landmarkPresets[0]) => {
     setMapCenter({ lat: preset.lat, lng: preset.lng });
-    setMapZoom(15);
+    setMapZoom(preset.zoom || 15);
     showToast(`🗺️ เลื่อนแผนที่ไปยัง: ${preset.name}`);
   };
 
@@ -347,6 +387,21 @@ export function AroundMeMap() {
       showToast('🎯 ปักหมุดที่พิกัด GPS ปัจจุบันของคุณแล้ว');
     } else {
       openLocationPermissionModal();
+    }
+  };
+
+  // Handle selection from Google Maps-style autocomplete suggestions
+  const handleSelectAutocompleteResult = (result: AutocompleteResult) => {
+    setMapCenter({ lat: result.lat, lng: result.lng });
+    setMapZoom(result.zoomLevel || 16);
+
+    if (result.rawPlace) {
+      setSelectedPlace(result.rawPlace);
+      showToast(`📍 พบ "${result.title}"`);
+    } else if (result.rawArea) {
+      showToast(`🗺️ เลื่อนแผนที่ไปยัง: ${result.title}`);
+    } else {
+      showToast(`🗺️ นำทางไปยัง: ${result.title}`);
     }
   };
 
@@ -434,23 +489,17 @@ export function AroundMeMap() {
 
           {/* Search Box + Actions */}
           <div className="flex gap-2">
-            <div className="relative flex-1 shadow-[0_8px_30px_rgba(0,0,0,0.25)]">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="ค้นหาสถานที่, ร้านอาหาร, จุดเตือนภัย, พิกัด..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 py-2.5 bg-white/95 backdrop-blur-xl rounded-2xl text-[13px] font-medium text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500 transition-all border border-slate-200 shadow-md"
+            <div className="flex-1 min-w-0">
+              <MapSearchAutocomplete
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                allMapPoints={allMapPoints}
+                userLat={location.latitude || mapCenter.lat}
+                userLng={location.longitude || mapCenter.lng}
+                onSelectResult={handleSelectAutocompleteResult}
+                onClear={() => setSearchQuery('')}
+                placeholder="ค้นหาพื้นที่, ตำบล, ร้านอาหาร, จุดเตือนภัย..."
               />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                >
-                  <X size={14} />
-                </button>
-              )}
             </div>
 
             {/* Pin Location Button */}
@@ -460,7 +509,7 @@ export function AroundMeMap() {
                 showToast(isPinningMode ? 'ปิดโหมดปักหมุด' : '📍 แตะที่ใดก็ได้บนแผนที่ หรือกดปุ่มปักหมุดเพื่อเพิ่มสถานที่');
               }}
               title="ปักหมุดสถานที่ใหม่"
-              className={`px-3 py-2.5 rounded-2xl flex items-center justify-center gap-1.5 shadow-lg border transition-all active:scale-95 text-[12px] font-extrabold ${
+              className={`px-3 py-2.5 rounded-2xl flex items-center justify-center gap-1.5 shadow-lg border transition-all active:scale-95 text-[12px] font-extrabold shrink-0 ${
                 isPinningMode
                   ? 'bg-emerald-600 text-white border-emerald-400 shadow-emerald-500/30 animate-pulse'
                   : 'bg-slate-900/90 text-white hover:bg-slate-800 border-slate-700 backdrop-blur-xl'

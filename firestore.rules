@@ -16,27 +16,39 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
+
+    // Default deny catch-all for unknown paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
     
-    // Users collection
+    // Users collection (Personal Profile & Data)
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
     
+    // User sessions & Login history (Access logs)
+    match /user_sessions/{sessionId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     // Admins registry
     match /admins/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Broadcasts collection (Created by admins only, read by everyone)
+    // Broadcasts collection (Official PR from admins)
     match /broadcasts/{broadcastId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Alerts collection (Read by all, created/voted by authenticated users)
+    // Alerts collection (Emergency & Community alerts)
     match /alerts/{alertId} {
       allow read: if true;
       allow create: if isAuthenticated();
@@ -44,20 +56,35 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Posts & Comments
+    // Posts (Community posts, Photos, Videos, Check-ins)
     match /posts/{postId} {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
       allow delete: if isAuthenticated() && (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      // Nested comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && (resource.data.authorUid == request.auth.uid || isAdmin());
+        allow delete: if isAuthenticated() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      }
     }
 
-    // Products
+    // Products (Community Marketplace)
     match /products/{productId} {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
       allow delete: if isAuthenticated() && (resource.data.sellerUid == request.auth.uid || isAdmin());
+    }
+
+    // Contact Requests (Direct messages to admin)
+    match /contact_requests/{requestId} {
+      allow read: if isAuthenticated() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
   }
 }

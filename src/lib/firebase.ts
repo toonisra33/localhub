@@ -15,11 +15,23 @@ import {
   getFirestore, 
   doc, 
   getDoc, 
+  getDocFromServer,
   setDoc, 
+  addDoc,
+  updateDoc,
+  deleteDoc,
   collection, 
-  serverTimestamp 
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove,
+  increment
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { UserProfileData, Post, PostComment, UserSessionLog } from '../types';
 
 // Initialize Firebase App singleton
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -36,6 +48,74 @@ export const ROOT_ADMIN_EMAILS = [
 ];
 
 /**
+ * Standard Operation Types for Firestore Error Handling (as specified in Firebase Skill)
+ */
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+/**
+ * Robust standardized Firestore error handler
+ */
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error:', JSON.stringify(errInfo));
+  return errInfo;
+}
+
+/**
+ * Test Connection to Firestore server on boot
+ */
+export async function testConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn("Firestore client is running in offline mode or network is slow.");
+    }
+    return false;
+  }
+}
+
+/**
  * Checks if an email is authorized as an Admin
  */
 export function isAuthorizedAdminEmail(email?: string | null): boolean {
@@ -44,14 +124,42 @@ export function isAuthorizedAdminEmail(email?: string | null): boolean {
 }
 
 /**
- * Sign in with Google Popup and automatically sync with Firestore users collection
+ * Log user session & access history to Firestore (/user_sessions)
  */
-export async function signInWithGoogleAuth() {
+export async function logUserSession(
+  userId: string,
+  userName: string,
+  userEmail: string,
+  loginMethod: 'google' | 'password' | 'anonymous',
+  ipOrLocation?: string
+): Promise<void> {
+  const path = 'user_sessions';
+  try {
+    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const sessionRef = doc(db, path, sessionId);
+    await setDoc(sessionRef, {
+      id: sessionId,
+      userId,
+      userName: userName || 'สมาชิกชุมชน',
+      userEmail: userEmail || '',
+      loginMethod,
+      ipOrLocation: ipOrLocation || navigator.language || 'Thailand',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Web Browser',
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+/**
+ * Sign in with Google Popup and automatically sync with Firestore users collection & user_sessions
+ */
+export async function signInWithGoogleAuth(locationString?: string) {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
 
-    // Check if user is in Root Admin list
     const isAdmin = isAuthorizedAdminEmail(user.email);
     const role = isAdmin ? 'admin' : 'user';
 
@@ -75,11 +183,12 @@ export async function signInWithGoogleAuth() {
         ...userData,
         createdAt: serverTimestamp(),
         phone: user.phoneNumber || '',
-        address: 'พื้นที่กรุงเทพมหานคร',
-        reputationScore: isAdmin ? 100 : 70,
+        address: locationString || 'กรุงเทพมหานคร',
+        villageOrCondo: 'ชุมชนในพื้นที่',
+        bio: 'สมาชิกชุมชนผู้ใช้งานผ่าน Google Account',
+        reputationScore: isAdmin ? 100 : 80,
       });
     } else {
-      // Retain or promote role
       const existingData = userSnap.data();
       const finalRole = isAdmin ? 'admin' : (existingData.role || 'user');
       await setDoc(userRef, {
@@ -88,10 +197,124 @@ export async function signInWithGoogleAuth() {
       }, { merge: true });
     }
 
+    // Record access/session log
+    await logUserSession(
+      user.uid,
+      user.displayName || user.email || 'สมาชิก Google',
+      user.email || '',
+      'google',
+      locationString
+    );
+
     return { user, role };
   } catch (error) {
-    console.error('Firebase Google Sign-in Error:', error);
+    handleFirestoreError(error, OperationType.WRITE, 'users');
     throw error;
+  }
+}
+
+/**
+ * Sync / Save user personal profile to Firestore
+ */
+export async function syncUserProfileToFirestore(userId: string, profileData: Partial<UserProfileData>): Promise<void> {
+  const path = `users/${userId}`;
+  try {
+    const userRef = doc(db, 'users', userId);
+    await setDoc(userRef, {
+      ...profileData,
+      displayName: profileData.name,
+      photoURL: profileData.avatar,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
+ * Save / Create Post in Firestore
+ */
+export async function savePostToFirestore(post: Post): Promise<void> {
+  const path = `posts/${post.id}`;
+  try {
+    const postRef = doc(db, 'posts', post.id);
+    await setDoc(postRef, {
+      id: post.id,
+      authorUid: post.authorUid || auth.currentUser?.uid || 'anonymous',
+      authorName: post.author.name,
+      authorAvatar: post.author.avatar,
+      content: post.content,
+      category: post.category || 'ทั่วไป',
+      images: post.images || (post.image ? [post.image] : []),
+      videoUrl: post.videoUrl || null,
+      location: post.location || null,
+      checkIn: post.checkIn || null,
+      likes: post.likes || 0,
+      comments: post.comments || 0,
+      likedBy: post.likedBy || [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+/**
+ * Toggle Like on Post in Firestore
+ */
+export async function togglePostLikeInFirestore(postId: string, userId: string, isCurrentlyLiked: boolean): Promise<void> {
+  const path = `posts/${postId}`;
+  try {
+    const postRef = doc(db, 'posts', postId);
+    await updateDoc(postRef, {
+      likes: increment(isCurrentlyLiked ? -1 : 1),
+      likedBy: isCurrentlyLiked ? arrayRemove(userId) : arrayUnion(userId),
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+/**
+ * Add comment to post in Firestore
+ */
+export async function addCommentToFirestore(postId: string, comment: PostComment): Promise<void> {
+  const path = `posts/${postId}/comments/${comment.id}`;
+  try {
+    const commentRef = doc(db, 'posts', postId, 'comments', comment.id);
+    await setDoc(commentRef, {
+      id: comment.id,
+      postId: postId,
+      authorUid: comment.authorUid || auth.currentUser?.uid || 'user_comment',
+      authorName: comment.author.name,
+      authorAvatar: comment.author.avatar,
+      content: comment.content,
+      createdAt: serverTimestamp()
+    });
+
+    // Increment comment count on parent post
+    const postRef = doc(db, 'posts', postId);
+    await updateDoc(postRef, {
+      comments: increment(1),
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+/**
+ * Delete Post from Firestore
+ */
+export async function deletePostFromFirestore(postId: string): Promise<void> {
+  const path = `posts/${postId}`;
+  try {
+    const postRef = doc(db, 'posts', postId);
+    await deleteDoc(postRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

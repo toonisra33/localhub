@@ -80,6 +80,17 @@ export const initialPosts: Post[] = [
     image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&q=80&w=600',
     isLiked: false,
     category: 'ตามหาของ/สัตว์เลี้ยง',
+    checkIn: {
+      placeName: 'ตลาดสดพัฒนา ลาดยาว',
+      subdistrict: 'ลาดยาว',
+      district: 'จตุจักร',
+      province: 'กรุงเทพมหานคร',
+      country: 'Thailand',
+      latitude: 13.8402,
+      longitude: 100.5750,
+      category: 'shop',
+      address: 'ซอยงามวงศ์วาน 54 แขวงลาดยาว เขตจตุจักร'
+    },
     commentList: [
       {
         id: 'c1',
@@ -109,6 +120,17 @@ export const initialPosts: Post[] = [
     image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&q=80&w=600',
     isLiked: true,
     category: 'ร้านอร่อยชุมชน',
+    checkIn: {
+      placeName: 'ร้านขนมหวานป้าศรี สูตรโบราณ',
+      subdistrict: 'ลาดยาว',
+      district: 'จตุจักร',
+      province: 'กรุงเทพมหานคร',
+      country: 'Thailand',
+      latitude: 13.8340,
+      longitude: 100.5710,
+      category: 'restaurant',
+      address: 'หน้าซอยพหลโยธิน 34 แยก 11'
+    },
     commentList: [
       {
         id: 'c3',
@@ -132,6 +154,17 @@ export const initialPosts: Post[] = [
     image: 'https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?auto=format&fit=crop&q=80&w=600',
     isLiked: false,
     category: 'ข่าวสารชุมชน',
+    checkIn: {
+      placeName: 'วัดเสนานิคม & ลานกิจกรรมชุมชน',
+      subdistrict: 'เสนานิคม',
+      district: 'จตุจักร',
+      province: 'กรุงเทพมหานคร',
+      country: 'Thailand',
+      latitude: 13.8290,
+      longitude: 100.5840,
+      category: 'event',
+      address: 'ถนนเสนานิคม 1 แขวงเสนานิคม เขตจตุจักร'
+    },
     commentList: []
   }
 ];
@@ -145,7 +178,7 @@ export const initialProducts: Product[] = [
     sellerPhone: '089-112-2334',
     distance: 2.3,
     category: 'สินค้าเกษตร',
-    image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&q=80&w=400',
+    image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&q=80&w=600',
     description: 'มะม่วงน้ำดอกไม้สุกธรรมชาติ ปลอดสารพิษ กิโลกรัมละ 50 บาท ส่งฟรีในเขตจตุจักรและเสนานิคม',
     locationName: 'ตลาดสดพัฒนาชุมชน'
   },
@@ -157,7 +190,7 @@ export const initialProducts: Product[] = [
     sellerPhone: '086-555-7890',
     distance: 0.8,
     category: 'ของมือสอง',
-    image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=400',
+    image: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=600',
     description: 'จักรยานมีตะกร้าหน้าพร้อมใช้งาน ยางเพิ่งเปลี่ยนใหม่ เบรกดี นัดรับได้ที่คอนโดรัชโยธิน',
     locationName: 'ซอยพหลโยธิน 35'
   },
@@ -169,7 +202,7 @@ export const initialProducts: Product[] = [
     sellerPhone: '081-999-4433',
     distance: 1.1,
     category: 'อาหาร/เครื่องดื่ม',
-    image: 'https://images.unsplash.com/photo-1626804475297-41609ea0c3eb?auto=format&fit=crop&q=80&w=400',
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=600',
     description: 'หมูกรอบทำเอง หนังกรอบฟู ผัดกะเพราโบราณรสจัดจ้าน สั่ง 3 กล่องขึ้นไปส่งฟรี',
     locationName: 'หน้าปากซอยเสนานิคม 1'
   },
@@ -181,7 +214,7 @@ export const initialProducts: Product[] = [
     sellerPhone: '090-444-1212',
     distance: 3.5,
     category: 'บริการซ่อม',
-    image: 'https://images.unsplash.com/photo-1581092926289-e9162ab7a24f?auto=format&fit=crop&q=80&w=400',
+    image: 'https://images.unsplash.com/photo-1581092926289-e9162ab7a24f?auto=format&fit=crop&q=80&w=600',
     description: 'รับซ่อมท่อรั่ว ซ่อมปั๊มน้ำ แก้ท่อตัน ติดตั้งสุขภัณฑ์ ประสบการณ์กว่า 15 ปี คิดตามหน้างานจริง',
     locationName: 'บริการถึงบ้านทุกหมู่บ้าน'
   },
@@ -193,9 +226,45 @@ export const initialProducts: Product[] = [
     sellerPhone: '082-333-8899',
     distance: 1.8,
     category: 'อสังหาฯ/ที่พัก',
-    image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&q=80&w=400',
+    image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&q=80&w=600',
     description: 'ห้อง 1 Bedroom ขนาด 30 ตร.ม. เฟอร์นิเจอร์และเครื่องใช้ไฟฟ้าครบ พร้อมเข้าอยู่ได้ทันที',
     locationName: 'BTS เสนานิคม'
+  },
+  {
+    id: '6',
+    title: 'เมล่อนญี่ปุ่น ปลูกระบบปิด หวานฉ่ำ 14 บริกซ์',
+    price: 180,
+    seller: 'ฟาร์มไฮโดรโปร ซอย 32',
+    sellerPhone: '083-456-7890',
+    distance: 1.4,
+    category: 'สินค้าเกษตร',
+    image: 'https://images.unsplash.com/photo-1571575179703-499aa697aca5?auto=format&fit=crop&q=80&w=600',
+    description: 'ตัดสดจากโรงเรือน เนื้อเขียว หอมละมุน ปลอดสารเคมี 100% ลูกละประมาณ 1.5 - 1.8 กก.',
+    locationName: 'ซอยพหลโยธิน 32'
+  },
+  {
+    id: '7',
+    title: 'กล้องฟิล์ม Retro Olympus Trip 35',
+    price: 2400,
+    seller: 'ต้นวินเทจ สะสมของเก่า',
+    sellerPhone: '085-998-1122',
+    distance: 0.9,
+    category: 'ของมือสอง',
+    image: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=600',
+    description: 'สภาพสะสม 95% ทำงานเต็มระบบ เลนส์ใส ไม่มีรา ฝ้า พร้อมสายคล้องหนังแท้',
+    locationName: 'หน้ามหาลัยเกษตรศาสตร์'
+  },
+  {
+    id: '8',
+    title: 'ครัวซองต์เนยฝรั่งเศส อบสดใหม่ทุกเช้า',
+    price: 65,
+    seller: 'Bake & Bloom โฮมเมด',
+    sellerPhone: '089-771-4455',
+    distance: 0.6,
+    category: 'อาหาร/เครื่องดื่ม',
+    image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=600',
+    description: 'ใช้เนย AOP แท้จากฝรั่งเศส หอมเนย กรอบนอกนุ่มใน สั่งล่วงหน้าหรือรับหน้าร้านได้เลยครับ',
+    locationName: 'ซอยพหลโยธิน 35 แยก 2'
   }
 ];
 

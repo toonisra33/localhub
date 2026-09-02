@@ -10,7 +10,9 @@ import {
   UserProfileData,
   AdminContactRequest,
   ContactRequestType,
-  ContactRequestStatus
+  ContactRequestStatus,
+  CheckInLocation,
+  UserSessionLog
 } from '../types';
 import { 
   initialAlerts, 
@@ -27,7 +29,16 @@ import {
   db, 
   signInWithGoogleAuth, 
   signOutAuth, 
-  isAuthorizedAdminEmail 
+  isAuthorizedAdminEmail,
+  savePostToFirestore,
+  togglePostLikeInFirestore,
+  addCommentToFirestore,
+  deletePostFromFirestore,
+  syncUserProfileToFirestore,
+  logUserSession,
+  testConnection,
+  handleFirestoreError,
+  OperationType
 } from '../lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -37,7 +48,17 @@ import {
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection,
+  onSnapshot, 
+  query,
+  orderBy,
+  limit,
+  serverTimestamp 
+} from 'firebase/firestore';
 
 interface ToastInfo {
   id: string;
@@ -64,12 +85,20 @@ interface CommunityContextType {
   addAlert: (alert: Omit<Alert, 'id' | 'time' | 'confirmations' | 'rejections' | 'status'>) => void;
   voteAlert: (alertId: string, voteType: 'up' | 'down') => void;
 
-  // Posts State
+  // Posts State (Synced with Firestore)
   posts: Post[];
-  addPost: (content: string, category: string, images?: string[], customLocation?: Location) => void;
-  toggleLikePost: (postId: string) => void;
-  addComment: (postId: string, content: string) => void;
-  deletePost: (postId: string) => void;
+  addPost: (content: string, category: string, images?: string[], customLocation?: Location, checkIn?: CheckInLocation, videoUrl?: string) => Promise<void>;
+  toggleLikePost: (postId: string) => Promise<void>;
+  addComment: (postId: string, content: string) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
+
+  // User Sessions & Access Audit Logs
+  userSessions: UserSessionLog[];
+
+  // Map Navigation & Highlight
+  targetMapLocation: { lat: number; lng: number; zoom?: number; placeName?: string } | null;
+  setTargetMapLocation: (target: { lat: number; lng: number; zoom?: number; placeName?: string } | null) => void;
+  jumpToMapLocation: (lat: number, lng: number, zoom?: number, placeName?: string) => void;
 
   // Products & Market State
   products: Product[];
@@ -85,20 +114,23 @@ interface CommunityContextType {
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
 
-  // User Profile & Authentication
+  // User Profile & Authentication (Firestore Sync)
   isLoggedIn: boolean;
   userProfile: UserProfileData;
-  updateUserProfile: (data: Partial<UserProfileData>) => void;
+  updateUserProfile: (data: Partial<UserProfileData>) => Promise<void>;
   verifyUserAccount: () => void;
   login: (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   register: (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register';
   openAuthModal: (mode?: 'login' | 'register') => void;
   closeAuthModal: () => void;
   requireAuth: (actionCallback: () => void, promptMessage?: string) => boolean;
+
+  // Database status
+  isFirestoreConnected: boolean;
 
   // Toast System
   toasts: ToastInfo[];
@@ -130,6 +162,18 @@ const CommunityContext = createContext<CommunityContextType | undefined>(undefin
 
 export function CommunityProvider({ children }: { children: ReactNode }) {
   const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [targetMapLocation, setTargetMapLocation] = useState<{ lat: number; lng: number; zoom?: number; placeName?: string } | null>(null);
+  const [isFirestoreConnected, setIsFirestoreConnected] = useState<boolean>(true);
+  const [userSessions, setUserSessions] = useState<UserSessionLog[]>([]);
+
+  const jumpToMapLocation = (lat: number, lng: number, zoom: number = 16, placeName?: string) => {
+    setTargetMapLocation({ lat, lng, zoom, placeName });
+    setActiveTab('map');
+    if (placeName) {
+      showToast(`📍 กำลังนำทางไปยัง ${placeName} บนแผนที่`);
+    }
+  };
+
   const [location, setLocation] = useState<Location>(() => {
     try {
       const saved = localStorage.getItem('locallink_user_location');
@@ -270,7 +314,6 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
     setContactRequests(prev => [newRequest, ...prev]);
 
-    // Also add an AppNotification for the resident
     const newNotification: AppNotification = {
       id: `n_contact_${Date.now()}`,
       title: '📨 ส่งเรื่องถึงแอดมินเรียบร้อยแล้ว',
@@ -320,7 +363,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   // Real GPS Location Request handler
   const requestRealLocation = async (): Promise<boolean> => {
     if (!navigator.geolocation) {
-      showToast('อุปกรณ์หรือเบราว์เซอร์ของคุณไม่รองรับการตรวจจับพิกัด GPS', 'error');
+      showToast('อุปกรณ์หรือเบราว์เซอร์ของคุณไม่รองรับการตรวจจับพิกัด GPS', 'info');
       setLocationPermissionStatus('denied');
       return false;
     }
@@ -328,85 +371,182 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setIsLocatingGps(true);
 
     return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const accuracy = Math.round(position.coords.accuracy);
+      const handleLocationSuccess = async (position: GeolocationPosition) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracy = Math.round(position.coords.accuracy || 25);
 
-          setLocationPermissionStatus('granted');
-          setIsLocatingGps(false);
+        setLocationPermissionStatus('granted');
+        setIsLocatingGps(false);
 
-          // Reverse geocode or intelligent Thai location matching
-          let matchedDistrict = 'จตุจักร';
-          let matchedSubdistrict = 'ลาดยาว';
-          let matchedProvince = 'กรุงเทพมหานคร';
-          let matchedVillage = `พิกัด GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        let matchedDistrict = 'จตุจักร';
+        let matchedSubdistrict = 'ลาดยาว';
+        let matchedProvince = 'กรุงเทพมหานคร';
+        let matchedVillage = `พิกัด GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
 
-          // Try reverse geocoding via OpenStreetMap Nominatim with fallback
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3500);
-            
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`, {
-              signal: controller.signal,
-              headers: { 'Accept-Language': 'th,en' }
-            });
-            clearTimeout(timeoutId);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`, {
+            signal: controller.signal,
+            headers: { 'Accept-Language': 'th,en' }
+          });
+          clearTimeout(timeoutId);
 
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.address) {
-                const addr = data.address;
-                matchedProvince = addr.province || addr.state || addr.city || 'กรุงเทพมหานคร';
-                matchedDistrict = addr.city_district || addr.district || addr.suburb || addr.town || addr.county || 'จตุจักร';
-                matchedSubdistrict = addr.subdistrict || addr.neighbourhood || addr.quarter || addr.village || 'ลาดยาว';
-                matchedVillage = addr.road || addr.residential || `ใกล้เคียง (${accuracy} ม.)`;
-              }
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.address) {
+              const addr = data.address;
+              matchedProvince = addr.province || addr.state || addr.city || 'กรุงเทพมหานคร';
+              matchedDistrict = addr.city_district || addr.district || addr.suburb || addr.town || addr.county || 'จตุจักร';
+              matchedSubdistrict = addr.subdistrict || addr.neighbourhood || addr.quarter || addr.village || 'ลาดยาว';
+              matchedVillage = addr.road || addr.residential || `ใกล้เคียง (${accuracy} ม.)`;
             }
-          } catch {
-            // If offline/timeout, keep smart defaults
           }
+        } catch {
+          // Keep defaults
+        }
 
-          const realLoc: Location = {
-            province: matchedProvince,
-            district: matchedDistrict,
-            subdistrict: matchedSubdistrict,
-            village: matchedVillage,
-            distance: 0,
-            latitude: lat,
-            longitude: lng,
-            accuracy: accuracy,
-            isGps: true,
-            timestamp: Date.now()
-          };
+        const realLoc: Location = {
+          province: matchedProvince,
+          district: matchedDistrict,
+          subdistrict: matchedSubdistrict,
+          village: matchedVillage,
+          distance: 0,
+          latitude: lat,
+          longitude: lng,
+          accuracy: accuracy,
+          isGps: true,
+          timestamp: Date.now()
+        };
 
-          setLocation(realLoc);
-          showToast(`🎯 ระบุพิกัด GPS จริงสำเร็จ: ${matchedDistrict}, ${matchedProvince} (ความแม่นยำ ±${accuracy}ม.)`, 'success');
-          resolve(true);
-        },
-        (error) => {
-          setIsLocatingGps(false);
-          let errMsg = 'ไม่สามารถระบุพิกัดตำแหน่งจริงได้';
-          if (error.code === error.PERMISSION_DENIED) {
-            setLocationPermissionStatus('denied');
-            errMsg = 'คุณได้ปฏิเสธการขอเข้าถึงตำแหน่ง (Location Permission Denied)';
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            errMsg = 'สัญญาณดาวเทียมหรือพิกัดตำแหน่งไม่พร้อมใช้งาน';
-          } else if (error.code === error.TIMEOUT) {
-            errMsg = 'การค้นหาพิกัดตำแหน่งหมดเวลา กรุณาลองใหม่อีกครั้ง';
+        setLocation(realLoc);
+        showToast(`🎯 ระบุพิกัด GPS จริงสำเร็จ: ${matchedDistrict}, ${matchedProvince} (ความแม่นยำ ±${accuracy}ม.)`, 'success');
+        resolve(true);
+      };
+
+      const handleFirstAttemptFail = () => {
+        navigator.geolocation.getCurrentPosition(
+          handleLocationSuccess,
+          (error) => {
+            setIsLocatingGps(false);
+            let errMsg = 'ไม่สามารถระบุพิกัดตำแหน่งจริงได้ กำลังใช้ตำแหน่งชุมชนที่บันทึกไว้';
+            if (error && error.code === error.PERMISSION_DENIED) {
+              setLocationPermissionStatus('denied');
+              errMsg = 'คุณได้ปฏิเสธการขอเข้าถึงตำแหน่ง (Location Permission Denied)';
+            }
+            showToast(errMsg, 'info');
+            resolve(false);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 6000,
+            maximumAge: 60000
           }
-          showToast(errMsg, 'error');
-          resolve(false);
-        },
+        );
+      };
+
+      navigator.geolocation.getCurrentPosition(
+        handleLocationSuccess,
+        handleFirstAttemptFail,
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 5000,
           maximumAge: 30000
         }
       );
     });
   };
+
+  // 1. Initial Connection Test & Real-time Firestore Listeners
+  useEffect(() => {
+    testConnection().then(connected => {
+      setIsFirestoreConnected(connected);
+    });
+
+    // Subscribe to Firestore Posts in real-time
+    const postsQuery = query(collection(db, 'posts'), limit(50));
+    const unsubscribePosts = onSnapshot(postsQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const firestorePosts: Post[] = snapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          const currentUid = auth.currentUser?.uid || userProfile.id;
+          const likedByArray: string[] = data.likedBy || [];
+          const isLiked = currentUid ? likedByArray.includes(currentUid) : false;
+
+          return {
+            id: docSnap.id,
+            author: {
+              name: data.authorName || 'สมาชิกชุมชน',
+              avatar: data.authorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
+            },
+            authorUid: data.authorUid,
+            content: data.content || '',
+            category: data.category || 'ทั่วไป',
+            images: data.images || (data.image ? [data.image] : []),
+            videoUrl: data.videoUrl || undefined,
+            location: data.location || location,
+            checkIn: data.checkIn || undefined,
+            likes: data.likes || 0,
+            comments: data.comments || 0,
+            isLiked: isLiked,
+            likedBy: likedByArray,
+            time: data.createdAt?.seconds 
+              ? new Date(data.createdAt.seconds * 1000).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+              : 'เมื่อสักครู่',
+            createdAt: data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now(),
+            commentList: []
+          };
+        });
+
+        // Merge with initial posts if needed or set directly
+        setPosts(prev => {
+          // Combine and deduplicate
+          const combined = [...firestorePosts];
+          prev.forEach(p => {
+            if (!combined.some(fp => fp.id === p.id)) {
+              combined.push(p);
+            }
+          });
+          return combined;
+        });
+      }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'posts');
+    });
+
+    // Subscribe to User Sessions Log in real-time
+    const sessionsQuery = query(collection(db, 'user_sessions'), limit(20));
+    const unsubscribeSessions = onSnapshot(sessionsQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const logs: UserSessionLog[] = snapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            userId: data.userId || 'anonymous',
+            userName: data.userName || 'สมาชิก',
+            userEmail: data.userEmail || '',
+            loginMethod: data.loginMethod || 'google',
+            ipOrLocation: data.ipOrLocation || 'กรุงเทพมหานคร',
+            userAgent: data.userAgent || 'Web Browser',
+            timestamp: data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now(),
+            timeStr: data.createdAt?.seconds 
+              ? new Date(data.createdAt.seconds * 1000).toLocaleString('th-TH')
+              : 'เมื่อสักครู่'
+          };
+        });
+        setUserSessions(logs);
+      }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'user_sessions');
+    });
+
+    return () => {
+      unsubscribePosts();
+      unsubscribeSessions();
+    };
+  }, []);
 
   // Listen for Firebase Auth state changes
   useEffect(() => {
@@ -431,6 +571,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
               avatar: data.photoURL || firebaseUser.photoURL || prev.avatar,
               phone: data.phone || prev.phone,
               address: data.address || prev.address,
+              villageOrCondo: data.villageOrCondo || prev.villageOrCondo,
+              bio: data.bio || prev.bio,
               isVerified: true,
               role: (data.role || role) as 'admin' | 'user',
               isGoogleUser: true
@@ -476,12 +618,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Persistence helpers
+  // Persistence helpers for localStorage caching
   useEffect(() => {
     try { localStorage.setItem('locallink_is_logged_in', JSON.stringify(isLoggedIn)); } catch {}
   }, [isLoggedIn]);
 
-  // Persistence helpers
   useEffect(() => {
     try { localStorage.setItem('locallink_alerts', JSON.stringify(alerts)); } catch {}
   }, [alerts]);
@@ -554,13 +695,11 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       let newVoted: 'up' | 'down' | undefined = voteType;
 
       if (alert.userVoted === voteType) {
-        // Toggle off
         newVoted = undefined;
         if (voteType === 'up') newConfirmations = Math.max(0, newConfirmations - 1);
         if (voteType === 'down') newRejections = Math.max(0, newRejections - 1);
         showToast('ยกเลิกการยืนยันแล้ว', 'info');
       } else {
-        // Switch or new vote
         if (alert.userVoted === 'up') newConfirmations = Math.max(0, newConfirmations - 1);
         if (alert.userVoted === 'down') newRejections = Math.max(0, newRejections - 1);
 
@@ -573,7 +712,6 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Auto update status if confirmed by many members
       let newStatus = alert.status;
       if (newConfirmations >= 5 && alert.status === 'unconfirmed') {
         newStatus = 'members';
@@ -589,50 +727,93 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  // Posts Actions
-  const addPost = (content: string, category: string = 'ทั่วไป', images?: string[], customLocation?: Location) => {
+  // Posts Actions (Firestore Persistence Enabled)
+  const addPost = async (
+    content: string, 
+    category: string = 'ทั่วไป', 
+    images?: string[], 
+    customLocation?: Location,
+    checkIn?: CheckInLocation,
+    videoUrl?: string
+  ): Promise<void> => {
+    const postId = `post_${Date.now()}`;
     const newPost: Post = {
-      id: `post_${Date.now()}`,
+      id: postId,
       author: {
         name: userProfile.name,
         avatar: userProfile.avatar
       },
+      authorUid: auth.currentUser?.uid || userProfile.id,
       content,
       category,
       images,
+      videoUrl,
       location: customLocation ? { ...customLocation, distance: 0.1 } : { ...location, distance: 0.1 },
+      checkIn: checkIn ? { ...checkIn } : undefined,
       time: 'เมื่อสักครู่',
       likes: 0,
       comments: 0,
       isLiked: false,
-      commentList: []
+      likedBy: [],
+      commentList: [],
+      createdAt: Date.now()
     };
+
+    // Optimistic UI update
     setPosts(prev => [newPost, ...prev]);
-    showToast('✨ แชร์เรื่องราวลงกระดานชุมชนแล้ว');
+
+    // Save to Firestore
+    try {
+      await savePostToFirestore(newPost);
+      showToast(checkIn ? `📍 เช็คอินที่ ${checkIn.placeName} และบันทึกลงฐานข้อมูลแล้ว` : '✨ แชร์เรื่องราวและบันทึกลงระบบฐานข้อมูลแล้ว');
+    } catch (e) {
+      console.warn('Saved locally, Firestore sync will retry:', e);
+      showToast('✨ แชร์เรื่องราวเรียบร้อยแล้ว');
+    }
   };
 
-  const toggleLikePost = (postId: string) => {
+  const toggleLikePost = async (postId: string): Promise<void> => {
+    const currentUid = auth.currentUser?.uid || userProfile.id;
+    let isNowLiked = false;
+
     setPosts(prev => prev.map(post => {
       if (post.id !== postId) return post;
       const isLiked = !post.isLiked;
+      isNowLiked = isLiked;
+      const currentLikedBy = post.likedBy || [];
+      const updatedLikedBy = isLiked
+        ? (currentLikedBy.includes(currentUid) ? currentLikedBy : [...currentLikedBy, currentUid])
+        : currentLikedBy.filter(id => id !== currentUid);
+
       return {
         ...post,
         isLiked,
+        likedBy: updatedLikedBy,
         likes: isLiked ? post.likes + 1 : Math.max(0, post.likes - 1)
       };
     }));
+
+    // Update in Firestore
+    try {
+      await togglePostLikeInFirestore(postId, currentUid, !isNowLiked);
+    } catch (e) {
+      console.error('Firestore Like Error:', e);
+    }
   };
 
-  const addComment = (postId: string, content: string) => {
+  const addComment = async (postId: string, content: string): Promise<void> => {
     if (!content.trim()) return;
+    const commentId = `c_${Date.now()}`;
     const newComment = {
-      id: `c_${Date.now()}`,
+      id: commentId,
       author: {
         name: userProfile.name,
         avatar: userProfile.avatar
       },
+      authorUid: auth.currentUser?.uid || userProfile.id,
       content,
-      time: 'เมื่อสักครู่'
+      time: 'เมื่อสักครู่',
+      createdAt: Date.now()
     };
 
     setPosts(prev => prev.map(post => {
@@ -644,12 +825,26 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         commentList: [...existingComments, newComment]
       };
     }));
-    showToast('💬 ส่งความคิดเห็นแล้ว');
+
+    // Save to Firestore
+    try {
+      await addCommentToFirestore(postId, newComment);
+      showToast('💬 ส่งความคิดเห็นและบันทึกลงฐานข้อมูลแล้ว');
+    } catch (e) {
+      console.error('Firestore Comment Error:', e);
+      showToast('💬 ส่งความคิดเห็นแล้ว');
+    }
   };
 
-  const deletePost = (postId: string) => {
+  const deletePost = async (postId: string): Promise<void> => {
     setPosts(prev => prev.filter(p => p.id !== postId));
-    showToast('ลบโพสต์เรียบร้อยแล้ว', 'info');
+    try {
+      await deletePostFromFirestore(postId);
+      showToast('ลบโพสต์ออกจากฐานข้อมูลเรียบร้อยแล้ว', 'info');
+    } catch (e) {
+      console.error('Firestore Delete Error:', e);
+      showToast('ลบโพสต์เรียบร้อยแล้ว', 'info');
+    }
   };
 
   // Products Actions
@@ -692,9 +887,19 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     showToast('ล้างการแจ้งเตือนทั้งหมดแล้ว', 'info');
   };
 
-  // Profile Actions
-  const updateUserProfile = (data: Partial<UserProfileData>) => {
+  // Profile Actions (Firestore sync)
+  const updateUserProfile = async (data: Partial<UserProfileData>): Promise<void> => {
     setUserProfile(prev => ({ ...prev, ...data }));
+    
+    if (auth.currentUser?.uid) {
+      try {
+        await syncUserProfileToFirestore(auth.currentUser.uid, data);
+        showToast('💾 บันทึกและซิงค์ข้อมูลส่วนตัวลงฐานข้อมูลเรียบร้อยแล้ว', 'success');
+        return;
+      } catch (e) {
+        console.error('Sync profile error:', e);
+      }
+    }
     showToast('บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว');
   };
 
@@ -728,11 +933,6 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       const userCredential = await signInWithEmailAndPassword(auth, credentials.phoneOrEmail, credentials.password);
       const user = userCredential.user;
       
-      if (!user.emailVerified) {
-        showToast('กรุณายืนยันอีเมลของคุณเพื่อการใช้งานที่สมบูรณ์ (เช็คได้ใน Inbox)', 'info');
-        // Do not block login for now to avoid locking users out
-      }
-      
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
       
@@ -743,6 +943,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         profileData = {
           ...profileData,
           id: user.uid,
+          uid: user.uid,
           name: data.displayName || user.displayName || 'สมาชิก',
           email: data.email || user.email || '',
           avatar: data.photoURL || user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
@@ -765,9 +966,18 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('locallink_user_role', profileData.role || 'user');
         localStorage.setItem('locallink_profile', JSON.stringify(profileData));
       } catch {}
+
+      // Log access session to database
+      await logUserSession(
+        user.uid,
+        profileData.name,
+        user.email || '',
+        'password',
+        `ต.${location.subdistrict}, ${location.district}`
+      );
       
       if (profileData.role === 'admin') {
-        showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบ (${user.email})! ได้รับสิทธิ์แอดมินเรียบร้อยแล้ว`, 'success');
+        showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบ (${user.email})! ได้รับสิทธิ์แอดมินและบันทึกเซสชันแล้ว`, 'success');
       } else {
         showToast(`👋 ยินดีต้อนรับกลับ, ${profileData.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
       }
@@ -787,7 +997,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
 
   const loginWithGoogle = async (): Promise<boolean> => {
     try {
-      const { user, role } = await signInWithGoogleAuth();
+      const locStr = `ต.${location.subdistrict}, ${location.district}`;
+      const { user, role } = await signInWithGoogleAuth(locStr);
       setIsLoggedIn(true);
       setIsAuthModalOpen(false);
 
@@ -814,7 +1025,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         try {
           localStorage.setItem('locallink_user_role', 'admin');
         } catch {}
-        showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบสูงสุด (${user.email})! ได้รับสิทธิ์แอดมินและบันทึกลง Firebase แล้ว`, 'success');
+        showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบสูงสุด (${user.email})! ได้รับสิทธิ์แอดมินและบันทึกลงฐานข้อมูลแล้ว`, 'success');
       } else {
         try {
           localStorage.setItem('locallink_user_role', 'user');
@@ -870,8 +1081,17 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Log session to database
+      await logUserSession(
+        user.uid,
+        data.name.trim(),
+        user.email || '',
+        'password',
+        data.address.trim() || `ต.${location.subdistrict}, ${location.district}`
+      );
       
-      showToast(`สมัครสมาชิกสำเร็จ! ส่งลิงก์ยืนยันตัวตนไปยังอีเมล ${data.email} แล้ว (กรุณาตรวจสอบใน Inbox เพื่อรับสิทธิ์เต็มรูปแบบ)`, 'success');
+      showToast(`สมัครสมาชิกสำเร็จ! บันทึกข้อมูลลงฐานข้อมูลและส่งลิงก์ยืนยันตัวตนไปยัง ${data.email} แล้ว`, 'success');
       
       if (pendingAuthAction) {
         pendingAuthAction();
@@ -943,6 +1163,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         toggleLikePost,
         addComment,
         deletePost,
+        userSessions,
+        targetMapLocation,
+        setTargetMapLocation,
+        jumpToMapLocation,
         products,
         addProduct,
         events,
@@ -964,6 +1188,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         openAuthModal,
         closeAuthModal,
         requireAuth,
+        isFirestoreConnected,
         toasts,
         showToast,
         removeToast,

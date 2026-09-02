@@ -18,6 +18,7 @@ import { AddProductModal } from './modals/AddProductModal';
 import { ProductDetailModal } from './modals/ProductDetailModal';
 import { FoodGuideModal } from './modals/FoodGuideModal';
 import { LocalHubLogo } from './LocalHubLogo';
+import { SafeImage } from './SafeImage';
 
 export function LocalMarket() {
   const { products, showToast } = useCommunity();
@@ -127,12 +128,13 @@ export function LocalMarket() {
                   className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group cursor-pointer"
                 >
                   <div className="relative aspect-square bg-slate-100 overflow-hidden">
-                    <img
+                    <SafeImage
                       src={product.image}
                       alt={product.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      category={product.category}
+                      className="w-full h-full group-hover:scale-105 transition-transform duration-300"
                     />
-                    <span className="absolute top-2 left-2 text-[10px] font-extrabold text-slate-900 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-sm">
+                    <span className="absolute top-2 left-2 text-[10px] font-extrabold text-slate-900 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-sm pointer-events-none z-10">
                       {product.category}
                     </span>
                   </div>

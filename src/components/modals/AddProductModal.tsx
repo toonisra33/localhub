@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, ShoppingBag, Camera, MapPin, Tag } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, ShoppingBag, Camera, MapPin, Tag, Upload, Image as ImageIcon } from 'lucide-react';
 import { useCommunity } from '../../context/CommunityContext';
+import { SafeImage, getCategoryFallback } from '../SafeImage';
 
 interface AddProductModalProps {
   onClose: () => void;
@@ -15,24 +16,46 @@ export function AddProductModal({ onClose }: AddProductModalProps) {
   const [locationName, setLocationName] = useState(`ต.${location.subdistrict}`);
   const [imageUrl, setImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = [
     'ของมือสอง', 'อาหาร/เครื่องดื่ม', 'สินค้าเกษตร', 'บริการซ่อม', 'อสังหาฯ/ที่พัก', 'เสื้อผ้า/แฟชั่น'
   ];
 
-  const handleSimulatePhoto = () => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
+      return;
+    }
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setImageUrl(result);
+        showToast('📸 แนบรูปสินค้าสำเร็จ');
+      }
+      setIsUploading(false);
+    };
+    reader.onerror = () => {
+      showToast('เกิดข้อผิดพลาดในการโหลดรูปภาพ', 'error');
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePickCategoryPreset = () => {
     setIsUploading(true);
     setTimeout(() => {
-      const samplePhotos = [
-        'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400',
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400',
-        'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=400',
-      ];
-      const randomImg = samplePhotos[Math.floor(Math.random() * samplePhotos.length)];
-      setImageUrl(randomImg);
+      const presetUrl = getCategoryFallback(category);
+      setImageUrl(presetUrl);
       setIsUploading(false);
-      showToast('📸 แนบรูปสินค้าสำเร็จ');
-    }, 500);
+      showToast('✨ เลือกรูปภาพตามหมวดหมู่สำเร็จ');
+    }, 300);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -42,7 +65,7 @@ export function AddProductModal({ onClose }: AddProductModalProps) {
       return;
     }
 
-    const defaultImg = 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&q=80&w=400';
+    const finalImage = imageUrl || getCategoryFallback(category);
 
     addProduct({
       title: title.trim(),
@@ -50,7 +73,7 @@ export function AddProductModal({ onClose }: AddProductModalProps) {
       category,
       description: description.trim(),
       locationName: locationName.trim(),
-      image: imageUrl || defaultImg
+      image: finalImage
     });
 
     onClose();
@@ -157,24 +180,37 @@ export function AddProductModal({ onClose }: AddProductModalProps) {
 
           {/* Photo */}
           <div>
-            <label className="block text-[12px] font-bold text-slate-700 mb-1">รูปถ่ายสินค้า</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[12px] font-bold text-slate-700">รูปถ่ายสินค้า</label>
+              <span className="text-[11px] font-medium text-slate-400">รูปคมชัด แสดงผลได้ 100%</span>
+            </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept="image/*"
+              className="hidden"
+            />
+
             {imageUrl ? (
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-40 bg-slate-900 group">
-                <img 
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-44 bg-slate-900 group">
+                <SafeImage 
                   src={imageUrl} 
                   alt="Product preview" 
+                  category={category}
                   onClick={() => openMediaViewer({
                     url: imageUrl,
                     type: 'image',
                     title: title || 'รูปถ่ายสินค้า',
                     subtitle: price ? `ราคา ฿${price}` : `หมวดหมู่: ${category}`
                   })}
-                  className="w-full h-40 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
+                  className="w-full h-44 cursor-pointer group-hover:scale-105 transition-transform duration-300" 
                 />
                 <button
                   type="button"
                   onClick={() => setImageUrl('')}
-                  className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-10"
+                  className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-20 shadow-md"
                 >
                   <X size={14} />
                 </button>
@@ -185,21 +221,33 @@ export function AddProductModal({ onClose }: AddProductModalProps) {
                     title: title || 'รูปถ่ายสินค้า',
                     subtitle: price ? `ราคา ฿${price}` : `หมวดหมู่: ${category}`
                   })}
-                  className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg border border-white/20 cursor-pointer pointer-events-none"
+                  className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg border border-white/20 cursor-pointer pointer-events-none z-20"
                 >
                   แตะเพื่อดูรูปเต็มจอ
                 </div>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleSimulatePhoto}
-                disabled={isUploading}
-                className="w-full py-3 border-2 border-dashed border-slate-200 hover:border-emerald-300 rounded-2xl bg-slate-50 hover:bg-emerald-50/40 text-slate-600 hover:text-emerald-600 flex items-center justify-center gap-2 text-[13px] font-bold transition-all"
-              >
-                <Camera size={18} className={isUploading ? 'animate-spin' : ''} />
-                <span>{isUploading ? 'กำลังอัปโหลดภาพ...' : 'ถ่ายภาพ / แนบรูปภาพสินค้า'}</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full py-3.5 border-2 border-dashed border-slate-200 hover:border-emerald-400 rounded-2xl bg-slate-50 hover:bg-emerald-50/30 text-slate-700 hover:text-emerald-700 flex items-center justify-center gap-2 text-[13px] font-bold transition-all shadow-sm"
+                >
+                  <Upload size={18} className="text-emerald-600" />
+                  <span>{isUploading ? 'กำลังประมวลผลรูปภาพ...' : 'อัปโหลดภาพถ่ายจากอุปกรณ์ / ถ่ายรูป'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePickCategoryPreset}
+                  disabled={isUploading}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <ImageIcon size={14} />
+                  <span>ใช้รูปภาพแนะนำสำหรับหมวด "{category}"</span>
+                </button>
+              </div>
             )}
           </div>
 

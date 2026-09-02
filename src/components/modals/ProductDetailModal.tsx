@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Phone, MessageSquare, MapPin, Tag, Share2, ShieldCheck, Check } from 'lucide-react';
 import { Product } from '../../types';
 import { useCommunity } from '../../context/CommunityContext';
+import { SafeImage } from '../SafeImage';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -63,12 +64,13 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
             })}
             className="rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 border border-slate-200 shadow-sm cursor-pointer relative group"
           >
-            <img
+            <SafeImage
               src={product.image}
               alt={product.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              category={product.category}
+              className="w-full h-full group-hover:scale-105 transition-transform duration-300"
             />
-            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none z-10">
               <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
                 แตะเพื่อดูภาพเต็มจอ
               </span>

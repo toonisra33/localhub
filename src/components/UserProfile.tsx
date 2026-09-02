@@ -6,27 +6,29 @@ import {
   Bookmark, 
   MapPin, 
   AlertTriangle, 
-  ChevronRight, 
   Shield, 
   ShieldCheck,
   Award, 
-  Radio, 
-  UserCheck, 
-  Lock,
-  Clock,
-  Sparkles,
   Edit3,
   CheckCircle2,
   UserPlus,
   LogIn,
   LogOut,
-  User,
-  Phone,
-  Mail,
-  BarChart3,
-  TrendingUp,
-  LayoutDashboard,
-  Megaphone
+  Megaphone,
+  PlusCircle,
+  Image as ImageIcon,
+  Heart,
+  MessageCircle,
+  Share2,
+  ExternalLink,
+  ChevronRight,
+  Clock,
+  Sparkles,
+  Check,
+  Database,
+  Activity,
+  Server,
+  Video as VideoIcon
 } from 'lucide-react';
 import { useBroadcast } from '../context/BroadcastContext';
 import { useCommunity } from '../context/CommunityContext';
@@ -34,9 +36,17 @@ import { SettingsModal } from './modals/SettingsModal';
 import { EditProfileModal } from './modals/EditProfileModal';
 import { IdVerificationModal } from './modals/IdVerificationModal';
 import { LocationPickerModal } from './modals/LocationPickerModal';
-import { FoodGuideModal } from './modals/FoodGuideModal';
+import { CreatePostModal } from './modals/CreatePostModal';
+import { PostDetailCommentsModal } from './modals/PostDetailCommentsModal';
+import { AddProductModal } from './modals/AddProductModal';
+import { ProductDetailModal } from './modals/ProductDetailModal';
 import { LocalHubLogo } from './LocalHubLogo';
+import { PostCard } from './PostCard';
+import { SafeImage } from './SafeImage';
+import { Post, Product, Alert } from '../types';
 import { isAuthorizedAdminEmail } from '../lib/firebase';
+
+type PersonalFeedTab = 'posts' | 'store' | 'saved' | 'alerts' | 'database';
 
 export function UserProfile() {
   const { 
@@ -50,12 +60,15 @@ export function UserProfile() {
   const { 
     isLoggedIn,
     userProfile, 
-    updateUserProfile,
     location, 
     posts, 
     products, 
     alerts, 
     contactRequests,
+    userSessions,
+    isFirestoreConnected,
+    toggleLikePost,
+    deletePost,
     setActiveTab, 
     openAuthModal,
     openContactAdminModal,
@@ -63,67 +76,105 @@ export function UserProfile() {
     showToast 
   } = useCommunity();
 
+  // Modals state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<Post | null>(null);
+
+  // Personal Feed sub-tab state
+  const [feedTab, setFeedTab] = useState<PersonalFeedTab>('posts');
 
   const isAuthorizedAdmin = isLoggedIn && isAuthorizedAdminEmail(userProfile?.email);
   const isRealAdmin = isAuthorizedAdmin && role === 'admin';
 
-  const myPostsCount = posts.filter(p => p.author.name === userProfile.name).length;
-  const myProductsCount = products.filter(p => p.seller === userProfile.name).length;
+  // Filter user specific content
+  const myPosts = posts.filter(p => p.author.name === userProfile.name);
+  const myProducts = products.filter(p => p.seller === userProfile.name);
+  // User's alerts (matching user's district or recent activity)
+  const myAlerts = alerts.filter(a => a.userVoted !== undefined || a.location.subdistrict === location.subdistrict);
+  // Saved posts/items (demonstrated with liked or bookmarked posts)
+  const savedPosts = posts.filter(p => p.isLiked);
 
-  const menuItems = [
-    { 
-      icon: Megaphone, 
-      label: 'ติดต่อแอดมิน / ขอประชาสัมพันธ์', 
-      count: contactRequests.length, 
+  // Sync active modal post if open
+  const activeModalPost = selectedPostForComments 
+    ? posts.find(p => p.id === selectedPostForComments.id) || selectedPostForComments
+    : null;
+
+  // 5 Top Action Buttons (Ordered strictly as requested: ติดต่อแอดมิน, ร้านของฉัน, บันทึก, พื้นที่ติดตาม, เหตุการณ์รายงาน)
+  const topActionButtons = [
+    {
+      id: 'contact_admin',
+      label: 'ติดต่อแอดมิน',
+      sublabel: 'ขอประชาสัมพันธ์',
+      icon: Megaphone,
+      count: contactRequests.length,
+      badgeColor: 'bg-indigo-100 text-indigo-800',
+      iconColor: 'text-indigo-600 bg-indigo-50 border-indigo-100',
+      hoverBorder: 'hover:border-indigo-300',
       onClick: () => {
         openContactAdminModal('pr_request');
       }
     },
-    { 
-      icon: FileText, 
-      label: 'โพสต์ของฉัน', 
-      count: myPostsCount, 
+    {
+      id: 'my_store',
+      label: 'ร้านของฉัน',
+      sublabel: 'สินค้าที่ลงขาย',
+      icon: Store,
+      count: myProducts.length,
+      badgeColor: 'bg-amber-100 text-amber-800',
+      iconColor: 'text-amber-600 bg-amber-50 border-amber-100',
+      hoverBorder: 'hover:border-amber-300',
       onClick: () => {
-        setActiveTab('community');
-        showToast(`กำลังแสดงโพสต์ของคุณ (${myPostsCount} รายการ)`);
+        setFeedTab('store');
+        showToast(`กำลังเปิดร้านค้าและสินค้าของคุณ (${myProducts.length} รายการ)`);
       }
     },
-    { 
-      icon: Store, 
-      label: 'ร้านของฉัน / สินค้าที่ขาย', 
-      count: myProductsCount, 
+    {
+      id: 'saved_items',
+      label: 'บันทึก',
+      sublabel: 'รายการที่เซฟไว้',
+      icon: Bookmark,
+      count: savedPosts.length,
+      badgeColor: 'bg-emerald-100 text-emerald-800',
+      iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+      hoverBorder: 'hover:border-emerald-300',
       onClick: () => {
-        setActiveTab('market');
-        showToast(`กำลังเปิดตลาดสินค้าของคุณ (${myProductsCount} รายการ)`);
+        setFeedTab('saved');
+        showToast(`แสดงรายการที่คุณบันทึกและกดใจไว้ (${savedPosts.length} รายการ)`);
       }
     },
-    { 
-      icon: Bookmark, 
-      label: 'ประกาศที่บันทึกไว้', 
-      count: 3, 
+    {
+      id: 'tracked_locations',
+      label: 'พื้นที่ติดตาม',
+      sublabel: `ต.${location.subdistrict}`,
+      icon: MapPin,
+      count: 1,
+      badgeColor: 'bg-sky-100 text-sky-800',
+      iconColor: 'text-sky-600 bg-sky-50 border-sky-100',
+      hoverBorder: 'hover:border-sky-300',
       onClick: () => {
-        showToast('เปิดรายการประกาศที่บันทึกไว้');
+        setShowLocationModal(true);
       }
     },
-    { 
-      icon: MapPin, 
-      label: 'พื้นที่ที่ติดตาม', 
-      count: 1, 
-      onClick: () => setShowLocationModal(true)
-    },
-    { 
-      icon: AlertTriangle, 
-      label: 'เหตุการณ์ที่รายงาน', 
-      count: alerts.length, 
+    {
+      id: 'incident_reports',
+      label: 'เหตุการณ์รายงาน',
+      sublabel: 'เหตุด่วนและแจ้งเตือน',
+      icon: AlertTriangle,
+      count: alerts.length,
+      badgeColor: 'bg-rose-100 text-rose-800',
+      iconColor: 'text-rose-600 bg-rose-50 border-rose-100',
+      hoverBorder: 'hover:border-rose-300',
       onClick: () => {
-        setActiveTab('home');
-        showToast('กำลังแสดงเหตุการณ์ที่คุณและเพื่อนบ้านรายงาน');
+        setFeedTab('alerts');
+        showToast(`แสดงรายงานเหตุการณ์ในพื้นที่ (${alerts.length} เหตุการณ์)`);
       }
-    },
+    }
   ];
 
   return (
@@ -151,7 +202,7 @@ export function UserProfile() {
               เข้าสู่ระบบ / ลงทะเบียนสมาชิก
             </h2>
             <p className="text-[12.5px] text-slate-300 font-medium max-w-xs mx-auto mb-5 leading-relaxed">
-              ร่วมเป็นส่วนหนึ่งของชุมชน {location.district} เพื่อโพสต์ข่าวสาร ซื้อขายสินค้าในตลาด และแจ้งเตือนเหตุด่วน
+              ร่วมเป็นส่วนหนึ่งของชุมชน {location.district} เพื่อโพสต์ข่าวสาร จัดการร้านค้าส่วนตัว และติดตามเหตุการณ์ในพื้นที่
             </p>
 
             <div className="grid grid-cols-2 gap-2.5 max-w-xs mx-auto">
@@ -177,7 +228,6 @@ export function UserProfile() {
           <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
             <LocalHubLogo size="sm" variant="dark" showSubtitle={false} />
             <div className="flex items-center gap-2">
-              {/* Quick Role Badge */}
               <span className={`text-[11px] font-extrabold px-3 py-1 rounded-full border shadow-sm ${
                 isRealAdmin 
                   ? 'bg-rose-50 text-rose-700 border-rose-200' 
@@ -200,7 +250,7 @@ export function UserProfile() {
               <img 
                 src={userProfile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} 
                 alt="Profile" 
-                className="w-18 h-18 rounded-2xl object-cover ring-4 ring-slate-100 shadow-md group-hover:scale-105 transition-transform" 
+                className="w-16 h-16 rounded-2xl object-cover ring-4 ring-slate-100 shadow-md group-hover:scale-105 transition-transform" 
               />
               <div className={`absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border-2 border-white shadow-md ${
                 isRealAdmin ? 'bg-rose-600' : 'bg-emerald-600'
@@ -217,7 +267,7 @@ export function UserProfile() {
                 <button
                   onClick={() => setShowEditProfileModal(true)}
                   className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                  title="แก้ไขข้อมูล"
+                  title="แก้ไขข้อมูลโปรไฟล์"
                 >
                   <Edit3 size={15} />
                 </button>
@@ -225,7 +275,7 @@ export function UserProfile() {
 
               <p className="text-[12.5px] font-medium text-slate-500 flex items-center gap-1 mt-0.5">
                 <MapPin size={13} className="text-emerald-600 shrink-0" />
-                <span className="truncate">{userProfile.address || `${location.district}, ${location.province}`}</span>
+                <span className="truncate">{userProfile.address || `ต.${location.subdistrict}, ${location.district}`}</span>
               </p>
 
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -244,242 +294,597 @@ export function UserProfile() {
             </div>
           </div>
 
-          {/* Account Fast Action Bar (Logout) */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100">
+          {/* Role switcher toggle if admin */}
+          {isAuthorizedAdmin && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11.5px] font-bold">
+              <span className="text-slate-500">โหมดสิทธิ์ใช้งาน:</span>
+              <button
+                onClick={() => {
+                  if (role === 'admin') {
+                    setRole('user');
+                    showToast('สลับเข้าสู่มุมมองจำลองของลูกบ้าน (Resident View)', 'info');
+                  } else {
+                    setRole('admin');
+                    showToast('สลับเข้าสู่โหมดผู้ดูแลระบบ', 'success');
+                  }
+                }}
+                className={`px-3 py-1 rounded-xl font-extrabold border transition-all ${
+                  role === 'admin' 
+                    ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}
+              >
+                {role === 'admin' ? '👑 โหมดแอดมิน (คลิกเพื่อดูมุมมองลูกบ้าน)' : '👤 สมาชิก (คลิกเปิดโหมดแอดมิน)'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TOP ACTION BUTTONS BAR (เรียงกันด้านบนฟีดจากซ้ายไปขวา: ติดต่อแอดมิน, ร้านของฉัน, บันทึก, พื้นที่ติดตาม, เหตุการณ์รายงาน) */}
+      <div className="px-4 mt-5">
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <h3 className="text-[13px] font-extrabold text-slate-700 tracking-tight flex items-center gap-1.5">
+            <Sparkles size={14} className="text-emerald-600" />
+            เมนูการจัดการและพื้นที่ของคุณ
+          </h3>
+          <span className="text-[11px] font-medium text-slate-400">5 รายการด่วน</span>
+        </div>
+
+        {/* Scrollable / Flexible Row of Buttons from Left to Right */}
+        <div className="grid grid-cols-5 gap-2 overflow-x-auto pb-1 hide-scrollbar">
+          {topActionButtons.map((btn) => {
+            const Icon = btn.icon;
+            const isCurrentlyActive = 
+              (btn.id === 'my_store' && feedTab === 'store') ||
+              (btn.id === 'saved_items' && feedTab === 'saved') ||
+              (btn.id === 'incident_reports' && feedTab === 'alerts');
+
+            return (
+              <button
+                key={btn.id}
+                onClick={btn.onClick}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all active:scale-95 text-center min-w-[68px] relative group ${
+                  isCurrentlyActive
+                    ? 'bg-slate-900 border-slate-900 text-white shadow-md'
+                    : `bg-white border-slate-200/90 text-slate-700 shadow-sm hover:shadow ${btn.hoverBorder}`
+                }`}
+              >
+                {/* Badge Count if > 0 */}
+                {btn.count > 0 && (
+                  <span className={`absolute -top-1.5 -right-1.5 text-[9.5px] font-black px-1.5 py-0.2 rounded-full border shadow-xs ${
+                    isCurrentlyActive ? 'bg-emerald-500 text-white border-white' : btn.badgeColor
+                  }`}>
+                    {btn.count}
+                  </span>
+                )}
+
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-1.5 transition-colors border ${
+                  isCurrentlyActive 
+                    ? 'bg-white/10 text-white border-white/20' 
+                    : btn.iconColor
+                }`}>
+                  <Icon size={17} strokeWidth={2.4} />
+                </div>
+
+                <span className={`text-[11px] font-extrabold leading-tight ${
+                  isCurrentlyActive ? 'text-white' : 'text-slate-800'
+                }`}>
+                  {btn.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* USER'S PERSONAL FEED SECTION (หน้าฟีดส่วนตัวของ User) */}
+      <div className="px-4 mt-6 max-w-md mx-auto space-y-4">
+        
+        {/* Feed Header and Sub-Tab Filter Pills */}
+        <div className="bg-white p-4 rounded-[28px] border border-slate-200/90 shadow-sm">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <FileText size={17} />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-black text-slate-900 tracking-tight">
+                  ฟีดส่วนตัวของฉัน
+                </h3>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  {userProfile.name} • ต.{location.subdistrict}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowCreatePostModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11.5px] font-extrabold px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
+            >
+              <PlusCircle size={14} />
+              <span>โพสต์ใหม่</span>
+            </button>
+          </div>
+
+          {/* Quick Create Post Bar */}
+          <div 
+            onClick={() => setShowCreatePostModal(true)}
+            className="flex gap-2.5 items-center bg-slate-50 hover:bg-slate-100 p-2.5 rounded-2xl border border-slate-200/80 transition-all cursor-pointer group mb-3.5"
+          >
+            <img 
+              src={userProfile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} 
+              alt="Me" 
+              className="w-8 h-8 rounded-xl object-cover ring-1 ring-emerald-500/20 shrink-0" 
+            />
+            <div className="flex-1 text-slate-400 group-hover:text-slate-600 text-[12px] font-medium truncate">
+              แชร์เรื่องราวหรืออัปเดตในฟีดส่วนตัวของคุณ...
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-white group-hover:bg-emerald-50 text-slate-400 group-hover:text-emerald-600 flex items-center justify-center transition-colors border border-slate-200/60 shrink-0">
+              <ImageIcon size={15} />
+            </div>
+          </div>
+
+          {/* Feed Filter Sub-Tabs */}
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl overflow-x-auto hide-scrollbar">
+            <button
+              onClick={() => setFeedTab('posts')}
+              className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-[70px] ${
+                feedTab === 'posts'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>โพสต์</span>
+              <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full ${feedTab === 'posts' ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'}`}>
+                {myPosts.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setFeedTab('store')}
+              className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-[70px] ${
+                feedTab === 'store'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>ร้านค้า</span>
+              <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full ${feedTab === 'store' ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'}`}>
+                {myProducts.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setFeedTab('alerts')}
+              className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-[65px] ${
+                feedTab === 'alerts'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>เหตุด่วน</span>
+              <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full ${feedTab === 'alerts' ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'}`}>
+                {myAlerts.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setFeedTab('saved')}
+              className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-[65px] ${
+                feedTab === 'saved'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>บันทึก</span>
+              <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full ${feedTab === 'saved' ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'}`}>
+                {savedPosts.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setFeedTab('database')}
+              className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-extrabold transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-[85px] ${
+                feedTab === 'database'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-emerald-700 hover:text-emerald-800 bg-emerald-50/70'
+              }`}
+            >
+              <Database size={12} />
+              <span>ฐานข้อมูล</span>
+            </button>
+          </div>
+        </div>
+
+        {/* FEED CONTENT STREAM */}
+
+        {/* TAB 1: User's Posts Feed */}
+        {feedTab === 'posts' && (
+          <div className="space-y-3.5">
+            {myPosts.length === 0 ? (
+              <div className="bg-white p-8 rounded-[28px] text-center border border-slate-200/90 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-3">
+                  <FileText size={26} />
+                </div>
+                <h4 className="text-[15px] font-extrabold text-slate-800 mb-1">ยังไม่มีโพสต์ในฟีดของคุณ</h4>
+                <p className="text-[12px] text-slate-500 max-w-xs mx-auto mb-4 leading-relaxed">
+                  เริ่มแชร์เรื่องราว ข่าวสาร หรือตามหาของในพื้นที่ ต.{location.subdistrict} กับเพื่อนบ้านกันเลย
+                </p>
+                <button
+                  onClick={() => setShowCreatePostModal(true)}
+                  className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[12.5px] font-extrabold shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <PlusCircle size={15} />
+                  สร้างโพสต์แรกของคุณ
+                </button>
+              </div>
+            ) : (
+              myPosts.map(post => (
+                <PostCard 
+                  key={post.id} 
+                  post={post}
+                  isMyPost={true}
+                  onLike={() => toggleLikePost(post.id)}
+                  onOpenComments={() => setSelectedPostForComments(post)}
+                  onDelete={() => deletePost(post.id)}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: User's Store / Products */}
+        {feedTab === 'store' && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[12.5px] font-extrabold text-slate-800">
+                สินค้าที่ลงขาย ({myProducts.length} รายการ)
+              </span>
+              <button
+                onClick={() => setShowAddProductModal(true)}
+                className="text-[11.5px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+              >
+                <PlusCircle size={14} />
+                ลงขายสินค้าใหม่
+              </button>
+            </div>
+
+            {myProducts.length === 0 ? (
+              <div className="bg-white p-8 rounded-[28px] text-center border border-slate-200/90 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center mb-3">
+                  <Store size={26} />
+                </div>
+                <h4 className="text-[15px] font-extrabold text-slate-800 mb-1">ยังไม่มีสินค้าในร้านของคุณ</h4>
+                <p className="text-[12px] text-slate-500 max-w-xs mx-auto mb-4 leading-relaxed">
+                  นำของมือสอง ผลผลิตการเกษตร อาหาร หรือบริการในพื้นที่มาลงขายสร้างรายได้ได้ทันที
+                </p>
+                <button
+                  onClick={() => setShowAddProductModal(true)}
+                  className="py-2.5 px-5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl text-[12.5px] font-extrabold shadow-md shadow-amber-600/20 inline-flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <PlusCircle size={15} />
+                  ลงขายสินค้าชิ้นแรก
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {myProducts.map(product => (
+                  <div 
+                    key={product.id}
+                    onClick={() => setSelectedProduct(product)}
+                    className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group cursor-pointer"
+                  >
+                    <div className="relative aspect-square bg-slate-100 overflow-hidden">
+                      <SafeImage
+                        src={product.image}
+                        alt={product.title}
+                        category={product.category}
+                        className="w-full h-full group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-2 left-2 text-[10px] font-extrabold text-slate-900 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-md shadow-sm pointer-events-none z-10">
+                        {product.category}
+                      </span>
+                    </div>
+
+                    <div className="p-3 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h4 className="font-extrabold text-[13px] text-slate-900 line-clamp-1 group-hover:text-emerald-600 transition-colors">
+                          {product.title}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5 line-clamp-1">
+                          {product.locationName}
+                        </p>
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span className="text-[13.5px] font-black text-emerald-700">
+                          ฿{product.price.toLocaleString()}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          สินค้าของฉัน
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: Incident Reports / Alerts */}
+        {feedTab === 'alerts' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[12.5px] font-extrabold text-slate-800">
+                เหตุการณ์และแจ้งเตือนในพื้นที่ ({alerts.length})
+              </span>
+              <button
+                onClick={() => {
+                  setActiveTab('home');
+                  showToast('เปิดหน้าแรกเพื่อดูแผนที่เหตุการณ์');
+                }}
+                className="text-[11.5px] font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+              >
+                <span>ดูแผนที่เตือนภัย</span>
+                <ChevronRight size={13} />
+              </button>
+            </div>
+
+            {alerts.length === 0 ? (
+              <div className="bg-white p-8 rounded-[28px] text-center border border-slate-200/90 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 mx-auto flex items-center justify-center mb-3">
+                  <AlertTriangle size={26} />
+                </div>
+                <h4 className="text-[15px] font-extrabold text-slate-800 mb-1">ไม่มีรายงานเหตุด่วน</h4>
+                <p className="text-[12px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                  พื้นที่ของคุณอยู่ในสภาวะปกติ ปลอดภัย ไม่มีเหตุฉุกเฉิน
+                </p>
+              </div>
+            ) : (
+              alerts.map(alert => (
+                <div 
+                  key={alert.id}
+                  className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm hover:border-rose-200 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                        alert.type === 'accident' 
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : alert.type === 'disaster'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      }`}>
+                        {alert.type === 'accident' ? '🚨 อุบัติเหตุ' : alert.type === 'disaster' ? '🌊 ภัยธรรมชาติ' : '📢 แจ้งเตือน'}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {alert.time}
+                      </span>
+                    </div>
+
+                    <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <MapPin size={11} className="text-rose-500" />
+                      ต.{alert.location.subdistrict}
+                    </span>
+                  </div>
+
+                  <h4 className="font-extrabold text-[13.5px] text-slate-900 mb-1 leading-snug">
+                    {alert.title}
+                  </h4>
+                  <p className="text-[12px] text-slate-600 leading-relaxed">
+                    {alert.description}
+                  </p>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
+                    <span>ยืนยันแล้ว {alert.confirmations} คน</span>
+                    <span className="text-emerald-600 font-extrabold">
+                      {alert.status === 'active' ? '● กำลังเกิดเหตุ' : '✓ คลี่คลายแล้ว'}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: Saved / Bookmarks */}
+        {feedTab === 'saved' && (
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[12.5px] font-extrabold text-slate-800">
+                โพสต์และประกาศที่บันทึกไว้ ({savedPosts.length})
+              </span>
+            </div>
+
+            {savedPosts.length === 0 ? (
+              <div className="bg-white p-8 rounded-[28px] text-center border border-slate-200/90 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-3">
+                  <Bookmark size={26} />
+                </div>
+                <h4 className="text-[15px] font-extrabold text-slate-800 mb-1">ยังไม่มีรายการที่บันทึกไว้</h4>
+                <p className="text-[12px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                  กดหัวใจหรือบันทึกโพสต์ที่คุณสนใจในชุมชนเพื่อกลับมาอ่านได้ที่นี่ตลอดเวลา
+                </p>
+              </div>
+            ) : (
+              savedPosts.map(post => (
+                <PostCard 
+                  key={post.id} 
+                  post={post}
+                  isMyPost={post.author.name === userProfile.name}
+                  onLike={() => toggleLikePost(post.id)}
+                  onOpenComments={() => setSelectedPostForComments(post)}
+                  onDelete={() => deletePost(post.id)}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: Database & User Access Logs */}
+        {feedTab === 'database' && (
+          <div className="space-y-4">
+            {/* Cloud Firestore Status Card */}
+            <div className="bg-white p-4 rounded-[28px] border border-slate-200/90 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Database size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-[13.5px] font-extrabold text-slate-900">ระบบฐานข้อมูลคลาวด์ Firestore</h4>
+                    <p className="text-[11px] text-slate-500">บันทึกข้อมูลส่วนตัว โพสต์ และสื่อแบบ Real-time</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  เชื่อมต่อฐานข้อมูลแล้ว
+                </span>
+              </div>
+
+              {/* Database ID & Metadata Details */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-[11.5px] space-y-1.5 font-medium text-slate-700">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Database ID:</span>
+                  <span className="font-mono font-bold text-slate-800 text-[10.5px]">ai-studio-locallink-b573f879</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">User Account UID:</span>
+                  <span className="font-mono text-slate-800 text-[10.5px] truncate max-w-[170px]">{userProfile.id}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">สถานะข้อมูลส่วนตัว:</span>
+                  <span className="text-emerald-700 font-bold">บันทึก & ซิงค์อัตโนมัติ</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">ระดับสิทธิ์ (Role):</span>
+                  <span className="font-bold text-indigo-700">{userProfile.role === 'admin' ? '👑 ผู้ดูแลระบบ (Admin)' : '👤 สมาชิก (User)'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* User Session Access Audit Logs */}
+            <div className="bg-white p-4 rounded-[28px] border border-slate-200/90 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <Activity size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-[13.5px] font-extrabold text-slate-900">บันทึกการเข้าใช้งานระบบ (Access Logs)</h4>
+                    <p className="text-[11px] text-slate-500">ประวัติการล็อกอินและการเข้าใช้งานของระบบ</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-slate-400">
+                  {userSessions.length} บันทึก
+                </span>
+              </div>
+
+              {userSessions.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-[12px] bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Clock size={24} className="mx-auto mb-1.5 opacity-60 text-slate-400" />
+                  ยังไม่มีประวัติการเข้าใช้งาน หรือกำลังเชื่อมต่อกับฐานข้อมูล
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {userSessions.map((session, idx) => (
+                    <div 
+                      key={session.id || idx}
+                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start justify-between text-[11.5px] hover:bg-slate-100 transition-colors"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                          <span>{session.userName || 'ผู้ใช้งาน'}</span>
+                          <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 uppercase">
+                            {session.loginMethod || 'auth'}
+                          </span>
+                        </div>
+                        <div className="text-slate-500 text-[10.5px]">
+                          {session.userEmail || '-'} • {session.ipOrLocation || 'กรุงเทพฯ'}
+                        </div>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-400 font-medium">
+                        <span className="flex items-center gap-1">
+                          <Clock size={10} />
+                          {session.timeStr || 'เมื่อสักครู่'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Media Uploads & Posts Database Summary */}
+            <div className="bg-white p-4 rounded-[28px] border border-slate-200/90 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <ImageIcon size={16} />
+                </div>
+                <div>
+                  <h4 className="text-[13.5px] font-extrabold text-slate-900">ข้อมูลสื่อ & โพสต์ที่บันทึกไว้</h4>
+                  <p className="text-[11px] text-slate-500">สรุปรูปภาพและวิดีโอที่ผู้ใช้บันทึกลงในระบบ</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                  <span className="text-[20px] font-black text-emerald-600">
+                    {myPosts.reduce((acc, p) => acc + (p.images ? p.images.length : (p.image ? 1 : 0)), 0)}
+                  </span>
+                  <span className="block text-[11px] font-bold text-slate-600 mt-0.5">รูปภาพในโพสต์</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                  <span className="text-[20px] font-black text-indigo-600">
+                    {myPosts.filter(p => !!p.videoUrl).length}
+                  </span>
+                  <span className="block text-[11px] font-bold text-slate-600 mt-0.5">วิดีโอในโพสต์</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Verify Identity Banner */}
+        <div className="mt-6">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+               <Shield size={130} />
+            </div>
+            <h3 className="font-extrabold text-[15px] mb-1 relative z-10 flex items-center gap-2">
+              <Shield size={18} />
+              {userProfile.isVerified ? 'ยืนยันตัวตนในพื้นที่เรียบร้อยแล้ว' : 'ยืนยันตัวตนในพื้นที่'}
+            </h3>
+            <p className="text-[12px] font-medium text-emerald-50/90 mb-4 relative z-10 leading-relaxed max-w-[85%]">
+              {userProfile.isVerified 
+                ? 'คุณได้รับตราสัญลักษณ์สมาชิกที่ยืนยันแล้ว สามารถซื้อขายและรายงานเหตุด้วยความน่าเชื่อถือสูงสุด'
+                : 'ยืนยันตัวตนด้วยบัตรประชาชนเพื่อรับป้าย "สมาชิกที่ยืนยันแล้ว" เพิ่มความน่าเชื่อถือ'}
+            </p>
+            <button 
+              onClick={() => setShowVerificationModal(true)}
+              className="bg-white text-emerald-800 text-[12.5px] font-extrabold px-5 py-2.5 rounded-2xl relative z-10 hover:bg-emerald-50 transition-all shadow-md active:scale-95"
+            >
+              {userProfile.isVerified ? 'ดูสถานะการยืนยันตัวตน' : 'เริ่มยืนยันตัวตน'}
+            </button>
+          </div>
+        </div>
+
+        {/* Logout Button */}
+        {isLoggedIn && (
+          <div className="pt-2">
             <button
               onClick={logout}
-              className="w-full py-2.5 px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-[13px] font-extrabold transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-white hover:bg-rose-50 text-rose-600 border border-slate-200/90 hover:border-rose-200 rounded-2xl text-[13px] font-extrabold transition-all flex items-center justify-center gap-2 shadow-xs"
               title="ออกจากระบบ"
             >
               <LogOut size={16} />
               ออกจากระบบ
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* User Role & Access Rights Card */}
-      {isLoggedIn && (
-        <div className="px-5 mt-5">
-          <div className="bg-white p-4.5 rounded-[24px] border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                  role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
-                }`}>
-                  <ShieldCheck size={18} />
-                </div>
-                <div>
-                  <h4 className="text-[13px] font-extrabold text-slate-900 leading-tight">
-                    สิทธิ์การใช้งานของแอปพลิเคชัน
-                  </h4>
-                  <p className="text-[11px] font-medium text-slate-500">
-                    {role === 'admin' 
-                      ? 'ผู้ดูแลระบบ (Admin)' 
-                      : isAuthorizedAdmin 
-                        ? 'โหมดจำลองสมาชิกทั่วไป' 
-                        : 'สมาชิกทั่วไป (Resident)'}
-                  </p>
-                </div>
-              </div>
-
-              <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border ${
-                role === 'admin' 
-                  ? 'bg-rose-50 text-rose-700 border-rose-200/80' 
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-              }`}>
-                {role === 'admin' ? '👑 Admin' : '👤 User'}
-              </span>
-            </div>
-
-            <div className={`rounded-2xl p-3 border flex items-center justify-between ${
-              role === 'admin' 
-                ? 'bg-rose-50/60 border-rose-200/60' 
-                : isAuthorizedAdmin
-                  ? 'bg-amber-50/60 border-amber-200/60'
-                  : 'bg-emerald-50/60 border-emerald-200/60'
-            }`}>
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${role === 'admin' || !isAuthorizedAdmin ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`}></div>
-                <span className={`text-[12px] font-bold ${role === 'admin' ? 'text-rose-950' : isAuthorizedAdmin ? 'text-amber-950' : 'text-emerald-950'}`}>
-                  {role === 'admin' 
-                    ? 'กำลังใช้งานสิทธิ์ผู้ดูแลระบบ' 
-                    : isAuthorizedAdmin
-                      ? 'กำลังจำลองมุมมองสมาชิกทั่วไป'
-                      : 'กำลังใช้งานสิทธิ์สมาชิกทั่วไป'}
-                </span>
-              </div>
-              
-              {isAuthorizedAdmin && (
-                <button
-                  onClick={() => {
-                    if (role === 'admin') {
-                      setRole('user');
-                      showToast('สลับเข้าสู่มุมมองจำลองของลูกบ้าน (Resident View)', 'info');
-                    } else {
-                      setRole('admin');
-                      showToast('สลับเข้าสู่โหมดผู้ดูแลระบบ', 'success');
-                    }
-                  }}
-                  className={`text-[11px] font-extrabold underline shrink-0 ml-2 ${
-                    role === 'admin' ? 'text-rose-700 hover:text-rose-900' : 'text-amber-700 hover:text-amber-900'
-                  }`}
-                >
-                  {role === 'admin' ? 'ดูมุมมองลูกบ้าน' : 'เปิดโหมดแอดมิน'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Specific Insights & Broadcast Cards */}
-      {isRealAdmin && (
-        <div className="px-5 mt-4 space-y-3">
-          
-          {/* Admin Analytics Dashboard Launcher Card */}
-          <div className="bg-white rounded-[28px] p-5 border border-slate-200/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
-            <div className="flex items-start justify-between mb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center border border-rose-100 shadow-sm">
-                  <BarChart3 size={22} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="font-extrabold text-[16px] text-slate-900 tracking-tight">แดชบอร์ดสถิติชุมชน</h3>
-                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold">
-                      Live
-                    </span>
-                  </div>
-                  <p className="text-[11.5px] text-slate-500 font-medium">ภาพรวมประชากร 4.8k คน และการใช้งานฟีเจอร์</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-3 gap-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-100 text-center mb-3.5">
-              <div>
-                <p className="text-[10px] text-slate-400 font-bold">ผู้ใช้ทั้งหมด</p>
-                <p className="text-[14px] font-black text-slate-900 mt-0.5">4,892 คน</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 font-bold">ผู้ใช้ต่อวัน</p>
-                <p className="text-[14px] font-black text-emerald-600 mt-0.5">1,280 คน</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 font-bold">เตือนภัย/แก้แล้ว</p>
-                <p className="text-[14px] font-black text-rose-600 mt-0.5">94%</p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setActiveTab('admin_dashboard')}
-              className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-[12.5px] font-extrabold transition-all flex items-center justify-center gap-2 shadow-md shadow-slate-950/20 active:scale-95 group"
-            >
-              <TrendingUp size={15} className="text-rose-400 group-hover:scale-110 transition-transform" />
-              <span>เปิดหน้าแดชบอร์ดสถิติเต็มรูปแบบ</span>
-              <ChevronRight size={15} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-
-        </div>
-      )}
-
-      {/* Admin Broadcast Card */}
-      {isRealAdmin && (
-        <div className="px-5 mt-4">
-          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-rose-950 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden border border-rose-500/20">
-            <div className="flex items-start justify-between relative z-10 mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-rose-500/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-rose-400 border border-rose-500/30">
-                  <Radio size={19} className="animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-[15.5px] tracking-tight">ศูนย์ควบคุมบรอดแคสแอดมิน</h3>
-                  <p className="text-[11.5px] text-slate-300 font-medium">ส่งข่าวสาร สาระดีๆ สินค้า หรือแจ้งเตือนด่วน</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-3.5 text-[12px] text-white/90 mb-4 border border-white/10 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-300">สถานะบรอดแคส:</span>
-                {activeBroadcast ? (
-                  <span className="bg-rose-500 text-white text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                    กำลังแพร่ภาพ ({Math.floor(deviceRemainingSeconds / 60)}:{String(deviceRemainingSeconds % 60).padStart(2, '0')} น.)
-                  </span>
-                ) : (
-                  <span className="text-slate-400">ไม่มีการบรอดแคสในขณะนี้</span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                ข้อความจะเลื่อนตามและล็อกบนหน้าจอทุกอุปกรณ์ 3 นาทีขณะเลื่อนดู และรีเซ็ตอัตโนมัติ 00:00 น.
-              </p>
-            </div>
-
-            <button 
-              onClick={() => setOpenAdminModal(true)}
-              className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-[13px] font-extrabold py-3 px-4 rounded-2xl transition-all shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 border border-rose-400/40 active:scale-95"
-            >
-              <Radio size={16} />
-              {activeBroadcast ? 'จัดการ / ส่งบรอดแคสใหม่' : 'สร้างและส่งบรอดแคสด่วน'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Menu List */}
-      <div className="px-5 mt-5 space-y-2.5">
-        {menuItems.map((item, idx) => {
-          const Icon = item.icon;
-          return (
-            <button 
-              key={idx}
-              onClick={item.onClick}
-              className="w-full bg-white flex items-center justify-between p-4 rounded-2xl border border-slate-200/80 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.03)] hover:border-emerald-300 hover:shadow-md transition-all group active:scale-[0.99]"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-                  <Icon size={18} strokeWidth={2.4} />
-                </div>
-                <span className="font-bold text-slate-800 text-[13.5px]">{item.label}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                {item.count > 0 && (
-                  <span className="bg-slate-100 text-slate-600 text-[11.5px] font-extrabold px-2.5 py-0.5 rounded-full">
-                    {item.count}
-                  </span>
-                )}
-                <ChevronRight size={17} className="text-slate-300 group-hover:text-emerald-500 transition-colors" />
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      
-      {/* Verify Identity Banner */}
-      <div className="px-5 mt-6">
-        <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden">
-          <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-             <Shield size={130} />
-          </div>
-          <h3 className="font-extrabold text-[15.5px] mb-1 relative z-10 flex items-center gap-2">
-            <Shield size={18} />
-            {userProfile.isVerified ? 'ยืนยันตัวตนในพื้นที่เรียบร้อยแล้ว' : 'ยืนยันตัวตนในพื้นที่'}
-          </h3>
-          <p className="text-[12px] font-medium text-emerald-50/90 mb-4 relative z-10 leading-relaxed max-w-[85%]">
-            {userProfile.isVerified 
-              ? 'คุณได้รับตราสัญลักษณ์สมาชิกที่ยืนยันแล้ว สามารถซื้อขายและรายงานเหตุด้วยความน่าเชื่อถือสูงสุด'
-              : 'ยืนยันตัวตนด้วยบัตรประชาชนเพื่อรับป้าย "สมาชิกที่ยืนยันแล้ว" เพิ่มความน่าเชื่อถือ'}
-          </p>
-          <button 
-            onClick={() => setShowVerificationModal(true)}
-            className="bg-white text-emerald-800 text-[12.5px] font-extrabold px-5 py-2.5 rounded-2xl relative z-10 hover:bg-emerald-50 transition-all shadow-md active:scale-95"
-          >
-            {userProfile.isVerified ? 'ดูสถานะการยืนยันตัวตน' : 'เริ่มยืนยันตัวตน'}
-          </button>
-        </div>
       </div>
 
       {/* Modals */}
@@ -487,6 +892,20 @@ export function UserProfile() {
       {showEditProfileModal && <EditProfileModal onClose={() => setShowEditProfileModal(false)} />}
       {showVerificationModal && <IdVerificationModal onClose={() => setShowVerificationModal(false)} />}
       {showLocationModal && <LocationPickerModal onClose={() => setShowLocationModal(false)} />}
+      {showCreatePostModal && <CreatePostModal onClose={() => setShowCreatePostModal(false)} />}
+      {showAddProductModal && <AddProductModal onClose={() => setShowAddProductModal(false)} />}
+      {selectedProduct && (
+        <ProductDetailModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
+      {activeModalPost && (
+        <PostDetailCommentsModal 
+          post={activeModalPost} 
+          onClose={() => setSelectedPostForComments(null)} 
+        />
+      )}
 
     </div>
   );
