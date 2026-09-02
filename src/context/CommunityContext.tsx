@@ -451,6 +451,25 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         } catch (e) {
           console.error('Error fetching Firestore user profile:', e);
         }
+      } else {
+        // User is signed out
+        setIsLoggedIn(false);
+        setUserProfile({
+          id: 'user_default',
+          name: 'ผู้เยี่ยมชม',
+          phone: '',
+          email: '',
+          address: '',
+          villageOrCondo: '',
+          bio: '',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
+          isVerified: false,
+          joinedDate: '',
+          reputationScore: 0,
+          role: 'user',
+          isGoogleUser: false
+        });
+        try { localStorage.setItem('locallink_is_logged_in', 'false'); } catch {}
       }
     });
 
@@ -710,9 +729,8 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       const user = userCredential.user;
       
       if (!user.emailVerified) {
-        showToast('กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ (สามารถเช็คได้ใน Inbox ของคุณ)', 'error');
-        await signOutAuth();
-        return false;
+        showToast('กรุณายืนยันอีเมลของคุณเพื่อการใช้งานที่สมบูรณ์ (เช็คได้ใน Inbox)', 'info');
+        // Do not block login for now to avoid locking users out
       }
       
       const userRef = doc(db, 'users', user.uid);
@@ -853,10 +871,14 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         updatedAt: serverTimestamp(),
       });
       
-      await signOutAuth();
+      showToast(`สมัครสมาชิกสำเร็จ! ส่งลิงก์ยืนยันตัวตนไปยังอีเมล ${data.email} แล้ว (กรุณาตรวจสอบใน Inbox เพื่อรับสิทธิ์เต็มรูปแบบ)`, 'success');
       
-      showToast(`ส่งลิงก์ยืนยันไปยังอีเมล ${data.email} แล้ว กรุณากดยืนยันในอีเมลก่อนเข้าสู่ระบบ`, 'success');
-      setAuthModalMode('login');
+      if (pendingAuthAction) {
+        pendingAuthAction();
+        setPendingAuthAction(null);
+      }
+      setIsAuthModalOpen(false);
+      
       return true;
     } catch (err: any) {
       console.error('Firebase Registration Error:', err);
@@ -872,10 +894,16 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await signOutAuth();
-    } catch {}
+    } catch (e) {
+      console.error('Error signing out', e);
+    }
+    
     try {
       localStorage.setItem('locallink_user_role', 'user');
+      localStorage.setItem('locallink_is_logged_in', 'false');
+      localStorage.removeItem('locallink_profile');
     } catch {}
+    
     setIsLoggedIn(false);
     showToast('ออกจากระบบเรียบร้อยแล้ว เข้าสู่โหมดผู้เยี่ยมชม', 'info');
   };
