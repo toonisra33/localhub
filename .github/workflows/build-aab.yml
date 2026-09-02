@@ -51,10 +51,13 @@ jobs:
           mkdir -p android-build
           cd android-build
 
+          # Create KeyStore
           keytool -genkey -v -keystore android.keystore -alias localhub -keyalg RSA -keysize 2048 -validity 10000 -storepass localhub123456 -keypass localhub123456 -dname "CN=Toon Isra, OU=LocalHub, O=LocalHub, L=Bangkok, ST=Bangkok, C=TH"
 
-          bubblewrap init --manifest=https://localhub-69fbe.web.app/manifest.json --skipPwaValidation
+          # Answer all prompts automatically using yes ""
+          yes "" | bubblewrap init --manifest=https://localhub-69fbe.web.app/manifest.json --skipPwaValidation || true
 
+          # Build signed AAB and APK
           bubblewrap build --skipPwaValidation --signing.keyPath=./android.keystore --signing.keyPassword=localhub123456 --signing.keyAlias=localhub --signing.storePassword=localhub123456
 
       - name: Upload Android App Bundle (.AAB) Artifact
@@ -64,4 +67,6 @@ jobs:
           path: |
             android-build/*.aab
             android-build/*.apk
+            android-build/app/build/outputs/bundle/release/*.aab
+            android-build/app/build/outputs/apk/release/*.apk
             android-build/android.keystore
