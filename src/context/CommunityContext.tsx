@@ -112,6 +112,7 @@ interface CommunityContextType {
   notifications: AppNotification[];
   unreadNotificationsCount: number;
   markNotificationRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
   clearAllNotifications: () => void;
 
   // User Profile & Authentication (Firestore Sync)
@@ -882,6 +883,10 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
+  const markAllNotificationsAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
   const clearAllNotifications = () => {
     setNotifications([]);
     showToast('ล้างการแจ้งเตือนทั้งหมดแล้ว', 'info');
@@ -1174,6 +1179,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
         notifications,
         unreadNotificationsCount,
         markNotificationRead,
+        markAllNotificationsAsRead,
         clearAllNotifications,
         isLoggedIn,
         userProfile,
