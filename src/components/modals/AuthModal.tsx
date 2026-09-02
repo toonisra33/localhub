@@ -72,6 +72,8 @@ export function AuthModal() {
   // Login Form State
   const [loginPhoneOrEmail, setLoginPhoneOrEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Password validation rules
   const hasMinLength = regPassword.length >= 8;
@@ -127,7 +129,7 @@ export function AuthModal() {
     reader.readAsDataURL(file);
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim()) {
       showToast('กรุณากรอกชื่อ-นามสกุล หรือชื่อเรียกในชุมชน', 'error');
@@ -171,7 +173,8 @@ export function AuthModal() {
 
     const fullAddress = `${regAddressDetail ? regAddressDetail + ' ' : ''}ต.${regSubdistrict} อ.${regDistrict} จ.${regProvince} ${regZipcode}`.trim();
 
-    register({
+    setIsSubmitting(true);
+    await register({
       name: regName,
       phone: regPhone,
       email: regEmail,
@@ -180,9 +183,10 @@ export function AuthModal() {
       villageOrCondo: regVillage,
       avatar: selectedAvatar
     });
+    setIsSubmitting(false);
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginPhoneOrEmail.trim()) {
       showToast('กรุณากรอกเบอร์โทรศัพท์หรืออีเมล', 'error');
@@ -196,11 +200,13 @@ export function AuthModal() {
       setRole('user');
     }
 
-    login({
+    setIsSubmitting(true);
+    await login({
       phoneOrEmail: loginPhoneOrEmail,
       password: loginPassword,
       name: isAdminLogin ? 'แอดมินศูนย์ควบคุมชุมชน' : undefined
     });
+    setIsSubmitting(false);
   };
 
   const handleGoogleSignIn = async () => {
@@ -630,15 +636,15 @@ export function AuthModal() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={!isPasswordValid}
+                disabled={!isPasswordValid || isSubmitting}
                 className={`w-full py-3.5 px-4 rounded-2xl text-[14px] font-extrabold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
-                  isPasswordValid 
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/25 cursor-pointer' 
+                  isPasswordValid && !isSubmitting
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/25 cursor-pointer'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }`}
               >
                 <UserPlus size={18} />
-                สมัครสมาชิกและเริ่มต้นใช้งาน
+                {isSubmitting ? 'กำลังดำเนินการ...' : 'สมัครสมาชิกและเริ่มต้นใช้งาน'}
               </button>
             </form>
           ) : (
@@ -703,10 +709,13 @@ export function AuthModal() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-[14px] font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                disabled={isSubmitting}
+                className={`w-full py-3.5 px-4 rounded-2xl text-[14px] font-extrabold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                  isSubmitting ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 text-white'
+                }`}
               >
                 <LogIn size={18} />
-                เข้าสู่ระบบด้วยเบอร์โทร / อีเมล
+                {isSubmitting ? 'กำลังดำเนินการ...' : 'เข้าสู่ระบบด้วยเบอร์โทร / อีเมล'}
               </button>
 
               {/* Google Sign-in Official Firebase Auth */}

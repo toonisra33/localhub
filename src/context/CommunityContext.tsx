@@ -29,7 +29,14 @@ import {
   signOutAuth, 
   isAuthorizedAdminEmail 
 } from '../lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  sendEmailVerification, 
+  updateProfile,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 interface ToastInfo {
@@ -83,9 +90,9 @@ interface CommunityContextType {
   userProfile: UserProfileData;
   updateUserProfile: (data: Partial<UserProfileData>) => void;
   verifyUserAccount: () => void;
-  login: (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }) => boolean;
+  login: (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
-  register: (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => void;
+  register: (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => Promise<boolean>;
   logout: () => void;
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register';
@@ -692,73 +699,72 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setPendingAuthAction(null);
   };
 
-  const login = (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }): boolean => {
-    const isAdmin = isAuthorizedAdminEmail(credentials.phoneOrEmail);
-    const assignedRole = isAdmin ? 'admin' : 'user';
-
-    if (!isAdmin) {
-      try {
-        const existingUsersRaw = localStorage.getItem('locallink_users');
-        const existingUsers = existingUsersRaw ? JSON.parse(existingUsersRaw) : [];
-        const user = existingUsers.find((u: any) => 
-          (u.email === credentials.phoneOrEmail || u.phone === credentials.phoneOrEmail) &&
-          u.password === credentials.password
-        );
-
-        if (!user) {
-          showToast('เบอร์โทรศัพท์ อีเมล หรือรหัสผ่านไม่ถูกต้อง (ยังไม่ได้ลงทะเบียน)', 'error');
-          return false;
-        }
-
-        setUserProfile(user);
-        setIsLoggedIn(true);
-        setIsAuthModalOpen(false);
-        localStorage.setItem('locallink_user_role', assignedRole);
-        
-        showToast(`👋 ยินดีต้อนรับกลับ, ${user.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
-        
-        if (pendingAuthAction) {
-          pendingAuthAction();
-          setPendingAuthAction(null);
-        }
-        return true;
-      } catch {
-        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
-        return false;
-      }
-    }
-
-    setIsLoggedIn(true);
-    setIsAuthModalOpen(false);
-
-    try {
-      localStorage.setItem('locallink_user_role', assignedRole);
-    } catch {}
-
-    // If custom details were provided during login
-    setUserProfile(prev => ({
-      ...prev,
-      name: isAdmin ? (credentials.name || 'แอดมินศูนย์ควบคุมชุมชน') : (credentials.name || prev.name),
-      phone: credentials.phoneOrEmail?.includes('@') ? prev.phone : (credentials.phoneOrEmail || prev.phone),
-      email: credentials.phoneOrEmail?.includes('@') ? credentials.phoneOrEmail.trim() : prev.email,
-      avatar: isAdmin 
-        ? (credentials.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200')
-        : (credentials.avatar || prev.avatar),
-      address: credentials.address || prev.address,
-      role: assignedRole,
-      isVerified: true,
-      reputationScore: isAdmin ? 100 : (prev.reputationScore || 85)
-    }));
-
-    if (isAdmin) {
-      showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบ (${credentials.phoneOrEmail})! ได้รับสิทธิ์แอดมินเรียบร้อยแล้ว`, 'success');
+  const login = async (credentials: { phoneOrEmail: string; password?: string; name?: string; avatar?: string; address?: string }): Promise<boolean> => {
+    if (!credentials.password) {
+      showToast('กรุณากรอกรหัสผ่าน', 'error');
+      return false;
     }
     
-    if (pendingAuthAction) {
-      pendingAuthAction();
-      setPendingAuthAction(null);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, credentials.phoneOrEmail, credentials.password);
+      const user = userCredential.user;
+      
+      if (!user.emailVerified) {
+        showToast('กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ (สามารถเช็คได้ใน Inbox ของคุณ)', 'error');
+        await signOutAuth();
+        return false;
+      }
+      
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      let profileData = { ...userProfile };
+      
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        profileData = {
+          ...profileData,
+          id: user.uid,
+          name: data.displayName || user.displayName || 'สมาชิก',
+          email: data.email || user.email || '',
+          avatar: data.photoURL || user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+          phone: data.phone || '',
+          address: data.address || '',
+          villageOrCondo: data.villageOrCondo || '',
+          bio: data.bio || '',
+          role: data.role || (isAuthorizedAdminEmail(user.email) ? 'admin' : 'user'),
+          isVerified: true,
+          reputationScore: data.reputationScore || 50,
+          isGoogleUser: false
+        };
+      }
+      
+      setUserProfile(profileData);
+      setIsLoggedIn(true);
+      setIsAuthModalOpen(false);
+      
+      try {
+        localStorage.setItem('locallink_user_role', profileData.role || 'user');
+        localStorage.setItem('locallink_profile', JSON.stringify(profileData));
+      } catch {}
+      
+      if (profileData.role === 'admin') {
+        showToast(`👑 ยินดีต้อนรับผู้ดูแลระบบ (${user.email})! ได้รับสิทธิ์แอดมินเรียบร้อยแล้ว`, 'success');
+      } else {
+        showToast(`👋 ยินดีต้อนรับกลับ, ${profileData.name}! เข้าสู่ระบบสำเร็จแล้ว`, 'success');
+      }
+      
+      if (pendingAuthAction) {
+        pendingAuthAction();
+        setPendingAuthAction(null);
+      }
+      
+      return true;
+    } catch (err: any) {
+      console.error('Firebase Login Error:', err);
+      showToast('อีเมลหรือรหัสผ่านไม่ถูกต้อง (หากเพิ่งสมัครกรุณายืนยันอีเมลก่อน)', 'error');
+      return false;
     }
-    return true;
   };
 
   const loginWithGoogle = async (): Promise<boolean> => {
@@ -810,52 +816,56 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }) => {
-    const isAdmin = isAuthorizedAdminEmail(data.email);
-    const assignedRole = isAdmin ? 'admin' : 'user';
-
-    const newProfile: UserProfileData & { password?: string } = {
-      id: `user_${Date.now()}`,
-      name: data.name.trim(),
-      phone: data.phone.trim(),
-      email: data.email?.trim() || `${data.phone.replace(/[^0-9]/g, '')}@locallink.app`,
-      address: data.address.trim(),
-      villageOrCondo: data.villageOrCondo?.trim() || location.village || 'ชุมชนท้องถิ่น',
-      bio: data.bio?.trim() || `สมาชิกใหม่แห่งชุมชน ${location.district}`,
-      avatar: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-      isVerified: true,
-      joinedDate: 'วันนี้',
-      reputationScore: isAdmin ? 100 : 50,
-      role: assignedRole,
-      password: data.password
-    };
-
-    try {
-      localStorage.setItem('locallink_user_role', assignedRole);
-      
-      if (!isAdmin) {
-        const existingUsersRaw = localStorage.getItem('locallink_users');
-        const existingUsers = existingUsersRaw ? JSON.parse(existingUsersRaw) : [];
-        existingUsers.push(newProfile);
-        localStorage.setItem('locallink_users', JSON.stringify(existingUsers));
-      }
-      
-      localStorage.setItem('locallink_profile', JSON.stringify(newProfile));
-    } catch {}
-
-    setUserProfile(newProfile);
-    setIsLoggedIn(true);
-    setIsAuthModalOpen(false);
-
-    if (isAdmin) {
-      showToast(`👑 บัญชีแอดมิน (${data.email}) ลงทะเบียนและเข้าสู่ระบบสำเร็จแล้ว`, 'success');
-    } else {
-      showToast(`🎉 ยินดีต้อนรับคุณ ${data.name}! สมัครสมาชิกและเข้าสู่ระบบเรียบร้อยแล้ว`, 'success');
+  const register = async (data: { name: string; phone: string; email?: string; password?: string; address: string; villageOrCondo?: string; avatar?: string; bio?: string }): Promise<boolean> => {
+    if (!data.email || !data.password) {
+      showToast('กรุณากรอกอีเมลและรหัสผ่าน', 'error');
+      return false;
     }
 
-    if (pendingAuthAction) {
-      pendingAuthAction();
-      setPendingAuthAction(null);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+      
+      await updateProfile(user, {
+        displayName: data.name.trim(),
+        photoURL: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
+      });
+      
+      await sendEmailVerification(user);
+      
+      const isAdmin = isAuthorizedAdminEmail(data.email);
+      const assignedRole = isAdmin ? 'admin' : 'user';
+      
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email,
+        displayName: data.name.trim(),
+        photoURL: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+        phone: data.phone.trim(),
+        address: data.address.trim(),
+        villageOrCondo: data.villageOrCondo?.trim() || location.village || 'ชุมชนท้องถิ่น',
+        bio: data.bio?.trim() || `สมาชิกใหม่แห่งชุมชน ${location.district}`,
+        role: assignedRole,
+        isVerified: false,
+        reputationScore: isAdmin ? 100 : 50,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      
+      await signOutAuth();
+      
+      showToast(`ส่งลิงก์ยืนยันไปยังอีเมล ${data.email} แล้ว กรุณากดยืนยันในอีเมลก่อนเข้าสู่ระบบ`, 'success');
+      setAuthModalMode('login');
+      return true;
+    } catch (err: any) {
+      console.error('Firebase Registration Error:', err);
+      if (err.code === 'auth/email-already-in-use') {
+        showToast('อีเมลนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบแทน', 'error');
+      } else {
+        showToast(err.message || 'เกิดข้อผิดพลาดในการลงทะเบียน', 'error');
+      }
+      return false;
     }
   };
 

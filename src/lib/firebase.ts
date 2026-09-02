@@ -5,7 +5,11 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile
 } from 'firebase/auth';
 import { 
   getFirestore, 

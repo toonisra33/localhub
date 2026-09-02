@@ -244,29 +244,15 @@ export function UserProfile() {
             </div>
           </div>
 
-          {/* Account Fast Action Bar (Register New / Switch / Logout) */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
-            <button
-              onClick={() => openAuthModal('register')}
-              className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 rounded-xl text-[12px] font-extrabold border border-emerald-200/70 transition-all flex items-center justify-center gap-1.5"
-            >
-              <UserPlus size={14} />
-              ลงทะเบียนบัญชีใหม่
-            </button>
-            <button
-              onClick={() => openAuthModal('login')}
-              className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-1.5"
-            >
-              <LogIn size={14} />
-              สลับบัญชี
-            </button>
+          {/* Account Fast Action Bar (Logout) */}
+          <div className="mt-4 pt-3.5 border-t border-slate-100">
             <button
               onClick={logout}
-              className="py-2 px-3 text-rose-600 hover:bg-rose-50 rounded-xl text-[12px] font-extrabold transition-all flex items-center justify-center gap-1"
+              className="w-full py-2.5 px-3 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-[13px] font-extrabold transition-all flex items-center justify-center gap-2"
               title="ออกจากระบบ"
             >
-              <LogOut size={14} />
-              ออก
+              <LogOut size={16} />
+              ออกจากระบบ
             </button>
           </div>
         </div>
