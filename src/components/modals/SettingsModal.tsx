@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Settings, Bell, Shield, Moon, Globe, Trash2, RefreshCw, Radio, UserPlus, LogIn, LogOut, UserCheck } from 'lucide-react';
 import { useBroadcast } from '../../context/BroadcastContext';
 import { useCommunity } from '../../context/CommunityContext';
+import { isAuthorizedAdminEmail } from '../../lib/firebase';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -13,6 +14,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [allowNotifications, setAllowNotifications] = useState(true);
   const [emergencyAlertsOnly, setEmergencyAlertsOnly] = useState(false);
   const [radiusKm, setRadiusKm] = useState('5');
+
+  const isAuthorizedAdmin = isLoggedIn && isAuthorizedAdminEmail(userProfile?.email);
 
   const handleResetDemoData = () => {
     localStorage.clear();
@@ -110,41 +113,77 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-extrabold text-slate-900 text-[13.5px]">สิทธิ์การใช้งาน (Role)</h4>
-                <p className="text-[11.5px] text-slate-500">สำหรับทดสอบฟีเจอร์บรอดแคสส่วนกลาง</p>
+                <p className="text-[11.5px] text-slate-500">
+                  {!isLoggedIn 
+                    ? 'กรุณาลงทะเบียน/เข้าระบบเพื่อใช้งาน'
+                    : isAuthorizedAdmin 
+                      ? 'สำหรับสลับโหมดจำลองการทำงาน' 
+                      : 'ระดับสิทธิ์ผู้ใช้งานปัจจุบัน'}
+                </p>
               </div>
-              <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${
-                role === 'admin' ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {role === 'admin' ? '👑 แอดมิน' : '👤 สมาชิก'}
-              </span>
+              
+              {isLoggedIn && (
+                <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full ${
+                  role === 'admin' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                }`}>
+                  {role === 'admin' ? '👑 แอดมิน' : '👤 สมาชิก'}
+                </span>
+              )}
             </div>
 
-            <div className="flex p-1 bg-white rounded-xl border border-slate-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setRole('user');
-                  showToast('สลับเป็นโหมด สมาชิกทั่วไป (User)');
-                }}
-                className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
-                  role === 'user' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                สมาชิกทั่วไป
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setRole('admin');
-                  showToast('สลับเป็นโหมด ผู้ดูแลระบบ (Admin)');
-                }}
-                className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
-                  role === 'admin' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                ผู้ดูแลระบบ (Admin)
-              </button>
-            </div>
+            {!isLoggedIn ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-3 text-center">
+                <p className="text-[12px] font-medium text-slate-600 mb-2">ลงทะเบียนหรือเข้าสู่ระบบเพื่อใช้งานเต็มรูปแบบ</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openAuthModal('login');
+                  }}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11.5px] font-extrabold transition-colors inline-flex items-center gap-1.5"
+                >
+                  <LogIn size={14} />
+                  เข้าสู่ระบบ / สลับบัญชี
+                </button>
+              </div>
+            ) : !isAuthorizedAdmin ? (
+              <div className="bg-white rounded-xl border border-emerald-100 p-3 flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+                  <UserCheck size={20} />
+                </div>
+                <div>
+                  <p className="text-[12.5px] font-extrabold text-slate-800">สมาชิกทั่วไป (Resident)</p>
+                  <p className="text-[11px] font-medium text-slate-500 mt-0.5">ใช้งานฟีเจอร์สำหรับลูกบ้านในชุมชน</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex p-1 bg-white rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('user');
+                    showToast('สลับเป็นโหมด สมาชิกทั่วไป (User)');
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
+                    role === 'user' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  สมาชิกทั่วไป
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('admin');
+                    showToast('สลับเป็นโหมด ผู้ดูแลระบบ (Admin)');
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold transition-all ${
+                    role === 'admin' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  ผู้ดูแลระบบ (Admin)
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Notifications config */}

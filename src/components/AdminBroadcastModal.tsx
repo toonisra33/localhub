@@ -34,6 +34,8 @@ import {
   Maximize2
 } from 'lucide-react';
 
+import { isAuthorizedAdminEmail } from '../lib/firebase';
+
 export function AdminBroadcastModal() {
   const { 
     openAdminModal, 
@@ -50,8 +52,12 @@ export function AdminBroadcastModal() {
     contactRequests, 
     updateContactRequestStatus, 
     openMediaViewer, 
-    showToast 
+    showToast,
+    isLoggedIn,
+    userProfile
   } = useCommunity();
+
+  const isRealAdmin = isLoggedIn && role === 'admin' && isAuthorizedAdminEmail(userProfile?.email);
 
   const [adminTab, setAdminTab] = useState<'create' | 'requests'>('create');
 
@@ -147,7 +153,7 @@ export function AdminBroadcastModal() {
   const [statusFeedback, setStatusFeedback] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!openAdminModal) return null;
+  if (!openAdminModal || !isRealAdmin) return null;
 
   const handleConvertRequestToBroadcast = (req: AdminContactRequest) => {
     setTitle(req.title);

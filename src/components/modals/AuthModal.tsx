@@ -62,6 +62,8 @@ export function AuthModal() {
   const [regAddress, setRegAddress] = useState('');
   const [regVillage, setRegVillage] = useState(location.village || 'หมู่บ้านพหลโยธิน');
   const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_OPTIONS[0]);
   const [isCustomUploaded, setIsCustomUploaded] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(true);
@@ -124,6 +126,10 @@ export function AuthModal() {
       showToast('กรุณากรอกเบอร์โทรศัพท์สำหรับติดต่อ', 'error');
       return;
     }
+    if (!regEmail.trim()) {
+      showToast('กรุณากรอกอีเมล', 'error');
+      return;
+    }
     if (!regAddress.trim()) {
       showToast('กรุณาระบุที่อยู่ ซอย หรือหมู่บ้านของคุณ', 'error');
       return;
@@ -139,6 +145,11 @@ export function AuthModal() {
       if (!hasSpecialChar) missingRequirements.push('สัญลักษณ์พิเศษ (!@#$...)');
 
       showToast(`รหัสผ่านต้องมี: ${missingRequirements.join(', ')}`, 'error');
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      showToast('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน', 'error');
       return;
     }
 
@@ -371,6 +382,26 @@ export function AuthModal() {
                 <p className="text-[11px] text-slate-500 mt-1">ใช้สำหรับการยืนยันตัวตนและการติดต่อแจ้งเหตุในพื้นที่</p>
               </div>
 
+              {/* Email */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  อีเมล <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail size={16} />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={regEmail}
+                    onChange={e => setRegEmail(e.target.value)}
+                    placeholder="เช่น youremail@example.com"
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                  />
+                </div>
+              </div>
+
               {/* Address / Community */}
               <div>
                 <label className="block text-[12px] font-bold text-slate-700 mb-1">
@@ -481,6 +512,42 @@ export function AuthModal() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block text-[12px] font-bold text-slate-700 mb-1">
+                  ยืนยันรหัสผ่าน <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    value={regConfirmPassword}
+                    onChange={e => setRegConfirmPassword(e.target.value)}
+                    placeholder="กรอกรหัสผ่านอีกครั้ง"
+                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 font-medium transition-all ${
+                      regConfirmPassword.length > 0 && regConfirmPassword !== regPassword
+                        ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500'
+                        : regConfirmPassword.length > 0 && regConfirmPassword === regPassword
+                        ? 'border-emerald-500 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        : 'focus:ring-emerald-500/20 focus:border-emerald-500'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {regConfirmPassword.length > 0 && regConfirmPassword !== regPassword && (
+                  <p className="text-[11px] text-rose-500 mt-1 font-medium">รหัสผ่านไม่ตรงกัน</p>
+                )}
               </div>
 
               {/* Terms Checkbox */}

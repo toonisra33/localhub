@@ -36,6 +36,7 @@ import { IdVerificationModal } from './modals/IdVerificationModal';
 import { LocationPickerModal } from './modals/LocationPickerModal';
 import { FoodGuideModal } from './modals/FoodGuideModal';
 import { LocalHubLogo } from './LocalHubLogo';
+import { isAuthorizedAdminEmail } from '../lib/firebase';
 
 export function UserProfile() {
   const { 
@@ -66,6 +67,9 @@ export function UserProfile() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+
+  const isAuthorizedAdmin = isLoggedIn && isAuthorizedAdminEmail(userProfile?.email);
+  const isRealAdmin = isAuthorizedAdmin && role === 'admin';
 
   const myPostsCount = posts.filter(p => p.author.name === userProfile.name).length;
   const myProductsCount = products.filter(p => p.seller === userProfile.name).length;
@@ -175,11 +179,11 @@ export function UserProfile() {
             <div className="flex items-center gap-2">
               {/* Quick Role Badge */}
               <span className={`text-[11px] font-extrabold px-3 py-1 rounded-full border shadow-sm ${
-                role === 'admin' 
+                isRealAdmin 
                   ? 'bg-rose-50 text-rose-700 border-rose-200' 
                   : 'bg-slate-100 text-slate-700 border-slate-200'
               }`}>
-                {role === 'admin' ? '👑 แอดมิน' : '👤 สมาชิก'}
+                {isRealAdmin ? '👑 แอดมิน' : '👤 สมาชิก'}
               </span>
               <button 
                 onClick={() => setShowSettingsModal(true)}
@@ -194,12 +198,12 @@ export function UserProfile() {
           <div className="flex items-center gap-4">
             <div className="relative group cursor-pointer" onClick={() => setShowEditProfileModal(true)}>
               <img 
-                src={role === 'admin' ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200" : userProfile.avatar} 
+                src={isRealAdmin ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200" : userProfile.avatar} 
                 alt="Profile" 
                 className="w-18 h-18 rounded-2xl object-cover ring-4 ring-slate-100 shadow-md group-hover:scale-105 transition-transform" 
               />
               <div className={`absolute -bottom-1 -right-1 text-white p-1.5 rounded-xl border-2 border-white shadow-md ${
-                role === 'admin' ? 'bg-rose-600' : 'bg-emerald-600'
+                isRealAdmin ? 'bg-rose-600' : 'bg-emerald-600'
               }`}>
                 <Shield size={12} strokeWidth={3} />
               </div>
@@ -208,7 +212,7 @@ export function UserProfile() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h2 className="text-[17px] font-extrabold text-slate-900 tracking-tight truncate">
-                  {role === 'admin' ? 'แอดมินศูนย์ควบคุมชุมชน' : userProfile.name}
+                  {isRealAdmin ? 'แอดมินศูนย์ควบคุมชุมชน' : userProfile.name}
                 </h2>
                 <button
                   onClick={() => setShowEditProfileModal(true)}
@@ -227,7 +231,7 @@ export function UserProfile() {
               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                 <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-0.5 rounded-full text-[11.5px] font-extrabold border border-emerald-100">
                   <Award size={13} className="text-amber-500" /> 
-                  {role === 'admin' ? 'ผู้ดูแลระบบสูงสุด' : `คะแนนชุมชน: ${userProfile.reputationScore}`}
+                  {isRealAdmin ? 'ผู้ดูแลระบบสูงสุด' : `คะแนนชุมชน: ${userProfile.reputationScore}`}
                 </span>
 
                 {userProfile.isVerified && (
@@ -268,44 +272,83 @@ export function UserProfile() {
         </div>
       )}
 
-      {/* Admin Access & Firebase Security Status Card (Only for Admins) */}
-      {role === 'admin' && (
+      {/* User Role & Access Rights Card */}
+      {isLoggedIn && (
         <div className="px-5 mt-5">
           <div className="bg-white p-4.5 rounded-[24px] border border-slate-200/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-rose-50 text-rose-600`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                  role === 'admin' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
+                }`}>
                   <ShieldCheck size={18} />
                 </div>
                 <div>
                   <h4 className="text-[13px] font-extrabold text-slate-900 leading-tight">
-                    สิทธิ์การใช้งานและการรักษาความปลอดภัย
+                    สิทธิ์การใช้งานของแอปพลิเคชัน
                   </h4>
                   <p className="text-[11px] font-medium text-slate-500">
-                    โหมดผู้ดูแลระบบ (Firebase Verified)
+                    {role === 'admin' 
+                      ? 'ผู้ดูแลระบบ (Admin)' 
+                      : isAuthorizedAdmin 
+                        ? 'โหมดจำลองสมาชิกทั่วไป' 
+                        : 'สมาชิกทั่วไป (Resident)'}
                   </p>
                 </div>
               </div>
 
-              <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border bg-rose-50 text-rose-700 border-rose-200/80`}>
-                👑 Admin
+              <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-extrabold border ${
+                role === 'admin' 
+                  ? 'bg-rose-50 text-rose-700 border-rose-200/80' 
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+              }`}>
+                {role === 'admin' ? '👑 Admin' : '👤 User'}
               </span>
             </div>
 
-            <div className="bg-rose-50/60 rounded-2xl p-3 border border-rose-200/60 flex items-center justify-between">
+            <div className={`rounded-2xl p-3 border flex items-center justify-between ${
+              role === 'admin' 
+                ? 'bg-rose-50/60 border-rose-200/60' 
+                : isAuthorizedAdmin
+                  ? 'bg-amber-50/60 border-amber-200/60'
+                  : 'bg-emerald-50/60 border-emerald-200/60'
+            }`}>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-[12px] font-bold text-rose-950">
-                  กำลังใช้งานสิทธิ์แอดมินสูงสุด ({userProfile.email || 'toonisra33@gmail.com'})
+                <div className={`w-2 h-2 rounded-full ${role === 'admin' || !isAuthorizedAdmin ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`}></div>
+                <span className={`text-[12px] font-bold ${role === 'admin' ? 'text-rose-950' : isAuthorizedAdmin ? 'text-amber-950' : 'text-emerald-950'}`}>
+                  {role === 'admin' 
+                    ? 'กำลังใช้งานสิทธิ์ผู้ดูแลระบบ' 
+                    : isAuthorizedAdmin
+                      ? 'กำลังจำลองมุมมองสมาชิกทั่วไป'
+                      : 'กำลังใช้งานสิทธิ์สมาชิกทั่วไป'}
                 </span>
               </div>
+              
+              {isAuthorizedAdmin && (
+                <button
+                  onClick={() => {
+                    if (role === 'admin') {
+                      setRole('user');
+                      showToast('สลับเข้าสู่มุมมองจำลองของลูกบ้าน (Resident View)', 'info');
+                    } else {
+                      setRole('admin');
+                      showToast('สลับเข้าสู่โหมดผู้ดูแลระบบ', 'success');
+                    }
+                  }}
+                  className={`text-[11px] font-extrabold underline shrink-0 ml-2 ${
+                    role === 'admin' ? 'text-rose-700 hover:text-rose-900' : 'text-amber-700 hover:text-amber-900'
+                  }`}
+                >
+                  {role === 'admin' ? 'ดูมุมมองลูกบ้าน' : 'เปิดโหมดแอดมิน'}
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* Admin Specific Insights & Broadcast Cards */}
-      {role === 'admin' && (
+      {isRealAdmin && (
         <div className="px-5 mt-4 space-y-3">
           
           {/* Admin Analytics Dashboard Launcher Card */}
@@ -357,7 +400,7 @@ export function UserProfile() {
       )}
 
       {/* Admin Broadcast Card */}
-      {role === 'admin' && (
+      {isRealAdmin && (
         <div className="px-5 mt-4">
           <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-rose-950 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden border border-rose-500/20">
             <div className="flex items-start justify-between relative z-10 mb-3">

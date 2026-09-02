@@ -62,28 +62,7 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
           return parsed;
         }
       }
-      // Initialize with default community broadcast for today
-      const defaultBroadcast: AdminBroadcast = {
-        id: `bc_default_${todayStr}`,
-        title: '🚨 แจ้งเตือนฉุกเฉิน: เฝ้าระวังฝนตกหนักและระดับน้ำในพื้นที่',
-        message: 'ศูนย์อำนวยการแจ้งเตือนประชาชนให้เก็บสิ่งของขึ้นที่สูง และระมัดระวังจุดลุ่มต่ำซอย 35 น้ำรอระบาย',
-        category: 'emergency',
-        severity: 'urgent',
-        targetArea: 'จตุจักร • ลาดยาว • เสนานิคม',
-        broadcastAt: Date.now(),
-        broadcastDateStr: todayStr,
-        adminName: 'ศูนย์อำนวยการชุมชน (แอดมิน)',
-        adminRole: 'ผู้ดูแลระบบส่วนกลาง',
-        mediaType: 'image',
-        mediaUrl: 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&q=80&w=800',
-        contactNumber: '199',
-        actionText: 'ดูจุดน้ำท่วมขัง',
-        actionUrl: 'https://www.google.com/maps',
-        pinned: true,
-        isActive: true
-      };
-      localStorage.setItem(BROADCAST_STORAGE_KEY, JSON.stringify(defaultBroadcast));
-      return defaultBroadcast;
+      return null;
     } catch {
       return null;
     }

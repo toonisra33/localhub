@@ -3,6 +3,7 @@ import { Home, MapPin, Users, Store, User, BarChart3 } from 'lucide-react';
 import { Tab } from '../types';
 import { useBroadcast } from '../context/BroadcastContext';
 import { useCommunity } from '../context/CommunityContext';
+import { isAuthorizedAdminEmail } from '../lib/firebase';
 
 interface NavigationProps {
   activeTab: Tab;
@@ -11,9 +12,9 @@ interface NavigationProps {
 
 export function Navigation({ activeTab, setActiveTab }: NavigationProps) {
   const { role } = useBroadcast();
-  const { isLoggedIn } = useCommunity();
+  const { isLoggedIn, userProfile } = useCommunity();
 
-  const isAdmin = isLoggedIn && role === 'admin';
+  const isAdmin = isLoggedIn && role === 'admin' && isAuthorizedAdminEmail(userProfile?.email);
 
   const navItems = [
     { id: 'home', icon: Home, label: 'หน้าหลัก' },

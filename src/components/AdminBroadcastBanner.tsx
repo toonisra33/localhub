@@ -22,6 +22,8 @@ import {
   Maximize2
 } from 'lucide-react';
 
+import { isAuthorizedAdminEmail } from '../lib/firebase';
+
 export function AdminBroadcastBanner() {
   const { 
     activeBroadcast, 
@@ -30,10 +32,11 @@ export function AdminBroadcastBanner() {
     role, 
     setOpenAdminModal 
   } = useBroadcast();
-  const { openMediaViewer } = useCommunity();
+  const { openMediaViewer, isLoggedIn, userProfile } = useCommunity();
   
   const [isExpanded, setIsExpanded] = useState(false);
   const isLeaving = deviceRemainingSeconds <= 1;
+  const isRealAdmin = isLoggedIn && isRealAdmin && isAuthorizedAdminEmail(userProfile?.email);
 
   // If no broadcast or expired on this device, do not render
   if (!isBroadcastVisible || !activeBroadcast) {
@@ -175,7 +178,7 @@ export function AdminBroadcastBanner() {
                 </span>
 
                 {/* Countdown Badge is visible ONLY to Admin for management */}
-                {role === 'admin' && (
+                {isRealAdmin && (
                   <div 
                     title="ตัวจับเวลาแอดมิน (ผู้ใช้ทั่วไปจะไม่เห็นเวลานี้)" 
                     className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-extrabold border ${theme.timerBadge} shadow-inner cursor-help`}
@@ -216,7 +219,7 @@ export function AdminBroadcastBanner() {
                   </a>
                 )}
 
-                {role === 'admin' && (
+                {isRealAdmin && (
                   <button
                     onClick={() => setOpenAdminModal(true)}
                     title="ตั้งค่าบรอดแคสแอดมิน"

@@ -18,6 +18,7 @@ import { LocationPermissionModal } from './components/modals/LocationPermissionM
 import { MediaViewerModal } from './components/modals/MediaViewerModal';
 import { ContactAdminModal } from './components/modals/ContactAdminModal';
 import { Bot, Sparkles } from 'lucide-react';
+import { isAuthorizedAdminEmail } from './lib/firebase';
 
 function AppContent() {
   const { 
@@ -28,19 +29,27 @@ function AppContent() {
     activeMedia,
     closeMediaViewer,
     isContactAdminModalOpen,
-    closeContactAdminModal
+    closeContactAdminModal,
+    isLoggedIn,
+    userProfile
   } = useCommunity();
-  const { isBroadcastVisible, activeBroadcast } = useBroadcast();
+  const { isBroadcastVisible, activeBroadcast, role } = useBroadcast();
   const [isAiOpen, setIsAiOpen] = useState(false);
 
   const renderContent = () => {
+    // Access Control check
+    if (activeTab === 'admin_dashboard') {
+      const isAdmin = isLoggedIn && role === 'admin' && isAuthorizedAdminEmail(userProfile?.email);
+      if (!isAdmin) return <HomeFeed />;
+      return <AdminDashboard />;
+    }
+
     switch (activeTab) {
       case 'home': return <HomeFeed />;
       case 'map': return <AroundMeMap />;
       case 'community': return <CommunityFeed />;
       case 'market': return <LocalMarket />;
       case 'me': return <UserProfile />;
-      case 'admin_dashboard': return <AdminDashboard />;
       default: return <HomeFeed />;
     }
   };
