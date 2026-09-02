@@ -51,55 +51,9 @@ jobs:
           mkdir -p android-build
           cd android-build
 
-          cat << 'EOF' > twa-manifest.json
-          {
-            "packageId": "com.toon.localhub",
-            "host": "localhub-69fbe.web.app",
-            "name": "LocalHub",
-            "launcherName": "LocalHub",
-            "themeColor": "#10B981",
-            "themeColorDark": "#111827",
-            "navigationColor": "#111827",
-            "navigationColorDark": "#111827",
-            "navigationDividerColor": "#000000",
-            "navigationDividerColorDark": "#000000",
-            "backgroundColor": "#111827",
-            "enableNotifications": true,
-            "startUrl": "/",
-            "iconUrl": "https://raw.githubusercontent.com/toonisra33/localhub/main/public/icon-512.png",
-            "maskableIconUrl": "https://raw.githubusercontent.com/toonisra33/localhub/main/public/icon-512.png",
-            "splashScreenFadeOutDuration": 300,
-            "signingKey": {
-              "path": "./android.keystore",
-              "alias": "localhub"
-            },
-            "appVersionName": "1.0.0",
-            "appVersionCode": 1,
-            "shortcuts": [],
-            "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://localhub-69fbe.web.app/manifest.json",
-            "fallbackType": "customtabs",
-            "features": {
-              "locationDelegation": {
-                "enabled": true
-              },
-              "playBilling": {
-                "enabled": false
-              }
-            },
-            "alphaDependencies": {
-              "enabled": false
-            },
-            "enableSiteSettingsShortcut": true,
-            "isChromeOSOnly": false,
-            "fullScopeUrl": "https://localhub-69fbe.web.app/",
-            "minSdkVersion": 21,
-            "orientation": "default",
-            "fingerprints": []
-          }
-          EOF
+          keytool -genkey -v -keystore android.keystore -alias localhub -keyalg RSA -keysize 2048 -validity 10000 -storepass localhub123456 -keypass localhub123456 -dname "CN=Toon Isra, OU=LocalHub, O=LocalHub, L=Bangkok, ST=Bangkok, C=TH"
 
-          keytool -genkey -v -keystore android.keystore -alias localhub -keyalg RSA -keysize 2048 -validity 10000 -storepass localhub123456 -keypass localhub123456 -dname "CN=Toon Isra, OU=LocalHub, O=LocalHub, L=Bangkok, S=Bangkok, C=TH"
+          bubblewrap init --manifest=https://localhub-69fbe.web.app/manifest.json --skipPwaValidation
 
           bubblewrap build --skipPwaValidation --signing.keyPath=./android.keystore --signing.keyPassword=localhub123456 --signing.keyAlias=localhub --signing.storePassword=localhub123456
 
