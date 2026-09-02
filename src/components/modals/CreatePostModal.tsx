@@ -10,26 +10,71 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   const { location, addPost, showToast, userProfile, openMediaViewer } = useCommunity();
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('ข่าวสารชุมชน');
-  const [imageUrl, setImageUrl] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const categories = [
     'ข่าวสารชุมชน', 'ตามหาของ/สัตว์เลี้ยง', 'ร้านอร่อยชุมชน', 'ประกาศทั่วไป', 'ขอความช่วยเหลือ', 'พูดคุยแลกเปลี่ยน'
   ];
 
-  const handleSimulateAttachImage = () => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const remainingSlots = 10 - images.length;
+    if (remainingSlots <= 0) {
+      showToast('สามารถอัปโหลดได้สูงสุด 10 รูป', 'error');
+      return;
+    }
+
+    const filesArray = Array.from(files).slice(0, remainingSlots);
     setIsAttaching(true);
-    setTimeout(() => {
-      const sampleImages = [
-        'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&q=80&w=600',
-        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=600',
-        'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&q=80&w=600',
-      ];
-      const randomImg = sampleImages[Math.floor(Math.random() * sampleImages.length)];
-      setImageUrl(randomImg);
+
+    let processedCount = 0;
+    const newImages: string[] = [];
+
+    filesArray.forEach(file => {
+      if (!file.type.startsWith('image/')) {
+        processedCount++;
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        showToast(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 5 MB`, 'error');
+        processedCount++;
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          newImages.push(result);
+        }
+        processedCount++;
+        
+        if (processedCount === filesArray.length) {
+          setImages(prev => [...prev, ...newImages]);
+          setIsAttaching(false);
+          showToast(`🖼️ แนบรูปภาพประกอบแล้ว ${newImages.length} รูป`, 'success');
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    if (filesArray.length === 0) {
       setIsAttaching(false);
-      showToast('🖼️ แนบรูปภาพประกอบแล้ว');
-    }, 500);
+    }
+    
+    // Clear input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,7 +84,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
       return;
     }
 
-    addPost(content.trim(), category, imageUrl || undefined);
+    addPost(content.trim(), category, images.length > 0 ? images : undefined);
     onClose();
   };
 
@@ -109,49 +154,65 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
           </div>
 
           {/* Image Preview / Attachment */}
-          {imageUrl ? (
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-48 bg-slate-900 group">
-              <img 
-                src={imageUrl} 
-                alt="Post image" 
-                onClick={() => openMediaViewer({
-                  url: imageUrl,
-                  type: 'image',
-                  title: 'รูปภาพที่แนบ',
-                  subtitle: `หมวดหมู่: ${category}`
-                })}
-                className="w-full h-48 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
-              />
-              <button
-                type="button"
-                onClick={() => setImageUrl('')}
-                className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-10"
-              >
-                <X size={14} />
-              </button>
-              <div 
-                onClick={() => openMediaViewer({
-                  url: imageUrl,
-                  type: 'image',
-                  title: 'รูปภาพที่แนบ',
-                  subtitle: `หมวดหมู่: ${category}`
-                })}
-                className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg border border-white/20 cursor-pointer pointer-events-none"
-              >
-                แตะเพื่อดูรูปเต็มจอ
+          {images.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-900 group">
+                    <img 
+                      src={img} 
+                      alt={`Post attachment ${idx}`}
+                      onClick={() => openMediaViewer({
+                        url: img,
+                        type: 'image',
+                        title: `รูปภาพที่แนบ ${idx + 1}/${images.length}`,
+                        subtitle: `หมวดหมู่: ${category}`
+                      })}
+                      className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-2 right-2 bg-slate-950/80 text-white p-1.5 rounded-full hover:bg-rose-600 transition-colors z-10"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
               </div>
+              
+              {images.length < 10 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAttaching}
+                  className="w-full py-2 border border-dashed border-slate-300 hover:border-emerald-400 rounded-xl bg-slate-50 hover:bg-emerald-50/50 text-slate-500 hover:text-emerald-600 flex items-center justify-center gap-1.5 text-[12px] font-bold transition-all"
+                >
+                  <ImageIcon size={16} className={isAttaching ? 'animate-spin' : ''} />
+                  <span>{isAttaching ? 'กำลังโหลดรูปภาพ...' : `เพิ่มรูปภาพ (${images.length}/10)`}</span>
+                </button>
+              )}
             </div>
           ) : (
             <button
               type="button"
-              onClick={handleSimulateAttachImage}
+              onClick={() => fileInputRef.current?.click()}
               disabled={isAttaching}
               className="w-full py-3 border-2 border-dashed border-slate-200 hover:border-emerald-300 rounded-2xl bg-slate-50 hover:bg-emerald-50/40 text-slate-600 hover:text-emerald-600 flex items-center justify-center gap-2 text-[13px] font-bold transition-all"
             >
               <ImageIcon size={18} className={isAttaching ? 'animate-spin' : ''} />
-              <span>{isAttaching ? 'กำลังโหลดรูปภาพ...' : 'แนบรูปภาพประกอบโพสต์'}</span>
+              <span>{isAttaching ? 'กำลังโหลดรูปภาพ...' : 'อัปโหลดรูปภาพประกอบโพสต์ (สูงสุด 10 รูป)'}</span>
             </button>
           )}
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept="image/*"
+            multiple
+            className="hidden"
+          />
 
           {/* Submit */}
           <div className="flex gap-2.5 pt-2">

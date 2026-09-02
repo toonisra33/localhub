@@ -59,7 +59,7 @@ interface CommunityContextType {
 
   // Posts State
   posts: Post[];
-  addPost: (content: string, category: string, image?: string) => void;
+  addPost: (content: string, category: string, images?: string[]) => void;
   toggleLikePost: (postId: string) => void;
   addComment: (postId: string, content: string) => void;
   deletePost: (postId: string) => void;
@@ -564,7 +564,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   };
 
   // Posts Actions
-  const addPost = (content: string, category: string = 'ทั่วไป', image?: string) => {
+  const addPost = (content: string, category: string = 'ทั่วไป', images?: string[]) => {
     const newPost: Post = {
       id: `post_${Date.now()}`,
       author: {
@@ -573,7 +573,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       },
       content,
       category,
-      image,
+      images,
       location: { ...location, distance: 0.1 },
       time: 'เมื่อสักครู่',
       likes: 0,
@@ -796,7 +796,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       address: data.address.trim(),
       villageOrCondo: data.villageOrCondo?.trim() || location.village || 'ชุมชนท้องถิ่น',
       bio: data.bio?.trim() || `สมาชิกใหม่แห่งชุมชน ${location.district}`,
-      avatar: data.avatar || `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 500)}?auto=format&fit=crop&q=80&w=200`,
+      avatar: data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
       isVerified: isAdmin,
       joinedDate: 'วันนี้',
       reputationScore: isAdmin ? 100 : 50,

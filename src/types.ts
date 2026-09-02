@@ -79,6 +79,7 @@ export interface Post {
   likes: number;
   comments: number;
   image?: string;
+  images?: string[];
   isLiked?: boolean;
   category?: string;
   commentList?: PostComment[];

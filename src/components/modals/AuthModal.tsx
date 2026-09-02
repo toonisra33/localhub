@@ -26,15 +26,7 @@ import { useCommunity } from '../../context/CommunityContext';
 import { useBroadcast } from '../../context/BroadcastContext';
 import { isAuthorizedAdminEmail, ROOT_ADMIN_EMAILS } from '../../lib/firebase';
 import { LocalHubLogo } from '../LocalHubLogo';
-
-const AVATAR_OPTIONS = [
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
-  'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=200',
-  'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200',
-];
+import { useThaiAddress } from '../../hooks/useThaiAddress';
 
 export function AuthModal() {
   const { 
@@ -55,16 +47,25 @@ export function AuthModal() {
   const [showPassword, setShowPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { provinces, getAmphoes, getTambons, getZipcode } = useThaiAddress();
+
   // Register Form State
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regAddress, setRegAddress] = useState('');
+  
+  // Address selection state
+  const [regAddressDetail, setRegAddressDetail] = useState('');
+  const [regProvince, setRegProvince] = useState(location?.province || '');
+  const [regDistrict, setRegDistrict] = useState(location?.district || '');
+  const [regSubdistrict, setRegSubdistrict] = useState(location?.subdistrict || '');
+  const [regZipcode, setRegZipcode] = useState('');
+
   const [regVillage, setRegVillage] = useState(location.village || 'หมู่บ้านพหลโยธิน');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_OPTIONS[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState('');
   const [isCustomUploaded, setIsCustomUploaded] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(true);
 
@@ -86,6 +87,16 @@ export function AuthModal() {
   React.useEffect(() => {
     setMode(authModalMode);
   }, [authModalMode]);
+
+  const amphoes = regProvince ? getAmphoes(regProvince) : [];
+  const tambons = regProvince && regDistrict ? getTambons(regProvince, regDistrict) : [];
+
+  React.useEffect(() => {
+    if (regProvince && regDistrict && regSubdistrict) {
+      const zip = getZipcode(regProvince, regDistrict, regSubdistrict);
+      if (zip) setRegZipcode(zip);
+    }
+  }, [regProvince, regDistrict, regSubdistrict, getZipcode]);
 
   if (!isAuthModalOpen) return null;
 
@@ -130,8 +141,8 @@ export function AuthModal() {
       showToast('กรุณากรอกอีเมล', 'error');
       return;
     }
-    if (!regAddress.trim()) {
-      showToast('กรุณาระบุที่อยู่ ซอย หรือหมู่บ้านของคุณ', 'error');
+    if (!regProvince || !regDistrict || !regSubdistrict || !regZipcode) {
+      showToast('กรุณาระบุที่อยู่ (จังหวัด, อำเภอ, ตำบล, รหัสไปรษณีย์) ให้ครบถ้วน', 'error');
       return;
     }
 
@@ -158,11 +169,13 @@ export function AuthModal() {
       return;
     }
 
+    const fullAddress = `${regAddressDetail ? regAddressDetail + ' ' : ''}ต.${regSubdistrict} อ.${regDistrict} จ.${regProvince} ${regZipcode}`.trim();
+
     register({
       name: regName,
       phone: regPhone,
       email: regEmail,
-      address: regAddress,
+      address: fullAddress,
       villageOrCondo: regVillage,
       avatar: selectedAvatar
     });
@@ -292,7 +305,7 @@ export function AuthModal() {
                   {/* Current Selected / Uploaded Avatar */}
                   <div className="relative shrink-0">
                     <img 
-                      src={selectedAvatar} 
+                      src={selectedAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} 
                       alt="Avatar preview" 
                       className="w-16 h-16 rounded-2xl object-cover ring-3 ring-emerald-500/30 shadow-md"
                     />
@@ -311,32 +324,11 @@ export function AuthModal() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full py-2 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[12px] font-extrabold border border-slate-300 shadow-sm flex items-center justify-center gap-1.5 transition-all mb-2"
+                      className="w-full py-2 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[12px] font-extrabold border border-slate-300 shadow-sm flex items-center justify-center gap-1.5 transition-all"
                     >
                       <Upload size={14} className="text-emerald-600" />
                       <span>อัปโหลดรูปถ่ายของคุณ</span>
                     </button>
-
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                      <span className="text-[10.5px] font-bold text-slate-400 shrink-0">หรือเลือก:</span>
-                      {AVATAR_OPTIONS.slice(0, 4).map((imgUrl, i) => (
-                        <button
-                          type="button"
-                          key={i}
-                          onClick={() => {
-                            setSelectedAvatar(imgUrl);
-                            setIsCustomUploaded(false);
-                          }}
-                          className={`w-7 h-7 rounded-lg overflow-hidden shrink-0 transition-all ${
-                            selectedAvatar === imgUrl && !isCustomUploaded
-                              ? 'ring-2 ring-emerald-500 scale-110' 
-                              : 'opacity-60 hover:opacity-100'
-                          }`}
-                        >
-                          <img src={imgUrl} alt={`Avatar ${i}`} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -403,20 +395,90 @@ export function AuthModal() {
               </div>
 
               {/* Address / Community */}
-              <div>
+              <div className="space-y-3">
                 <label className="block text-[12px] font-bold text-slate-700 mb-1">
-                  ที่อยู่ / ซอย / หมู่บ้าน / คอนโด <span className="text-rose-500">*</span>
+                  ที่อยู่และพื้นที่ของคุณ <span className="text-rose-500">*</span>
                 </label>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Province */}
+                  <div>
+                    <select
+                      value={regProvince}
+                      onChange={e => {
+                        setRegProvince(e.target.value);
+                        setRegDistrict('');
+                        setRegSubdistrict('');
+                        setRegZipcode('');
+                      }}
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                    >
+                      <option value="">เลือกจังหวัด</option>
+                      {provinces.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* District / Amphoe */}
+                  <div>
+                    <select
+                      value={regDistrict}
+                      onChange={e => {
+                        setRegDistrict(e.target.value);
+                        setRegSubdistrict('');
+                        setRegZipcode('');
+                      }}
+                      required
+                      disabled={!regProvince}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] disabled:opacity-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                    >
+                      <option value="">เลือกอำเภอ/เขต</option>
+                      {amphoes.map(a => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Sub-district / Tambon */}
+                  <div>
+                    <select
+                      value={regSubdistrict}
+                      onChange={e => setRegSubdistrict(e.target.value)}
+                      required
+                      disabled={!regDistrict}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] disabled:opacity-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
+                    >
+                      <option value="">เลือกตำบล/แขวง</option>
+                      {tambons.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Zipcode */}
+                  <div>
+                    <input
+                      type="text"
+                      value={regZipcode}
+                      readOnly
+                      placeholder="รหัสไปรษณีย์"
+                      className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-[13px] font-medium"
+                    />
+                  </div>
+                </div>
+
+                {/* Detailed Address */}
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <MapPin size={16} />
                   </div>
                   <input
                     type="text"
-                    required
-                    value={regAddress}
-                    onChange={e => setRegAddress(e.target.value)}
-                    placeholder="เช่น บ้านเลขที่ 12/3 ซอย 5 หมู่บ้านพหลโยธิน"
+                    value={regAddressDetail}
+                    onChange={e => setRegAddressDetail(e.target.value)}
+                    placeholder="รายละเอียด (บ้านเลขที่, ซอย, ถนน) - ไม่บังคับ"
                     className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-[13px] placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium"
                   />
                 </div>

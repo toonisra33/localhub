@@ -241,7 +241,48 @@ const PostCard: React.FC<PostCardProps> = ({
       </p>
 
       {/* Image Attachment (if any) */}
-      {post.image && (
+      {post.images && post.images.length > 0 ? (
+        <div className={`mb-4 grid gap-1.5 rounded-2xl overflow-hidden border border-slate-150 ${post.images.length === 1 ? 'grid-cols-1' : post.images.length === 2 ? 'grid-cols-2' : post.images.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+          {post.images.map((img, idx) => {
+            // Only show up to 4 images in the grid preview
+            if (idx > 3) return null;
+            const isLastVisible = idx === 3 && post.images!.length > 4;
+            
+            return (
+              <div 
+                key={idx}
+                onClick={() => openMediaViewer({
+                  url: img,
+                  type: 'image',
+                  title: `โพสต์โดย ${post.author.name} (${idx + 1}/${post.images!.length})`,
+                  subtitle: `ต.${post.location.subdistrict} • ${post.time}`
+                })}
+                className={`relative bg-slate-900 cursor-pointer group ${post.images!.length === 1 ? 'max-h-72' : 'aspect-square'}`}
+              >
+                <img 
+                  src={img} 
+                  alt={`ภาพประกอบโพสต์ ${idx + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                />
+                
+                {isLastVisible && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <span className="text-white text-xl font-extrabold">+{post.images!.length - 4}</span>
+                  </div>
+                )}
+                
+                {!isLastVisible && (
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+                      ดูรูปภาพ
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : post.image ? (
         <div 
           onClick={() => openMediaViewer({
             url: post.image!,
@@ -262,7 +303,7 @@ const PostCard: React.FC<PostCardProps> = ({
             </span>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Stats Bar */}
       <div className="flex justify-between items-center text-[12px] font-bold text-slate-400 border-b border-slate-100 pb-2.5 mb-2">

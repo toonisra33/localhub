@@ -198,7 +198,7 @@ export function UserProfile() {
           <div className="flex items-center gap-4">
             <div className="relative group cursor-pointer" onClick={() => setShowEditProfileModal(true)}>
               <img 
-                src={isRealAdmin ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200" : userProfile.avatar} 
+                src={userProfile.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} 
                 alt="Profile" 
                 className="w-18 h-18 rounded-2xl object-cover ring-4 ring-slate-100 shadow-md group-hover:scale-105 transition-transform" 
               />

@@ -36,7 +36,7 @@ export function AdminBroadcastBanner() {
   
   const [isExpanded, setIsExpanded] = useState(false);
   const isLeaving = deviceRemainingSeconds <= 1;
-  const isRealAdmin = isLoggedIn && isRealAdmin && isAuthorizedAdminEmail(userProfile?.email);
+  const isRealAdmin = isLoggedIn && role === 'admin' && isAuthorizedAdminEmail(userProfile?.email);
 
   // If no broadcast or expired on this device, do not render
   if (!isBroadcastVisible || !activeBroadcast) {

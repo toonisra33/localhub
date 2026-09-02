@@ -15,14 +15,6 @@ export function EditProfileModal({ onClose }: EditProfileModalProps) {
   const [avatar, setAvatar] = useState(userProfile.avatar);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const avatarsList = [
-    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
-    'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=200',
-    'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
-  ];
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -120,27 +112,11 @@ export function EditProfileModal({ onClose }: EditProfileModalProps) {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[11.5px] font-extrabold border border-slate-300 shadow-sm flex items-center justify-center gap-1.5 transition-all mb-2"
+                  className="w-full py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-[11.5px] font-extrabold border border-slate-300 shadow-sm flex items-center justify-center gap-1.5 transition-all"
                 >
                   <Upload size={13} className="text-emerald-600" />
                   <span>อัปโหลดรูปถ่ายของคุณ</span>
                 </button>
-
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                  <span className="text-[10px] font-bold text-slate-400 shrink-0">หรือเลือก:</span>
-                  {avatarsList.map((av, idx) => (
-                    <button
-                      type="button"
-                      key={idx}
-                      onClick={() => setAvatar(av)}
-                      className={`w-7 h-7 rounded-lg overflow-hidden border transition-all shrink-0 ${
-                        avatar === av ? 'border-emerald-500 ring-2 ring-emerald-500/30 scale-105' : 'border-slate-200 opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={av} alt="option" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           </div>

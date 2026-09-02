@@ -30,7 +30,7 @@ interface BroadcastContextType {
 const BROADCAST_STORAGE_KEY = 'locallink_admin_broadcast';
 const DEVICE_VIEW_PREFIX = 'locallink_device_view_';
 const USER_ROLE_KEY = 'locallink_user_role';
-export const BROADCAST_DURATION_SECONDS = 3 * 60; // 3 minutes (180 seconds)
+export const BROADCAST_DURATION_SECONDS = 15 * 60; // 15 minutes (900 seconds)
 
 const BroadcastContext = createContext<BroadcastContextType | undefined>(undefined);
 
@@ -58,7 +58,7 @@ export function BroadcastProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(BROADCAST_STORAGE_KEY);
       if (saved) {
         const parsed: AdminBroadcast = JSON.parse(saved);
-        if (parsed.broadcastDateStr === todayStr && parsed.isActive) {
+        if (parsed.broadcastDateStr === todayStr && parsed.isActive && !parsed.id.startsWith('bc_default_')) {
           return parsed;
         }
       }

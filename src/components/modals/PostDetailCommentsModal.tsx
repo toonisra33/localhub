@@ -72,7 +72,43 @@ export function PostDetailCommentsModal({ post, onClose }: PostDetailCommentsMod
               {post.content}
             </p>
 
-            {post.image && (
+            {post.images && post.images.length > 0 ? (
+              <div className={`grid gap-1.5 rounded-xl overflow-hidden border border-slate-200 ${post.images.length === 1 ? 'grid-cols-1' : post.images.length === 2 ? 'grid-cols-2' : post.images.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+                {post.images.map((img, idx) => {
+                  if (idx > 3) return null;
+                  const isLastVisible = idx === 3 && post.images!.length > 4;
+                  
+                  return (
+                    <div 
+                      key={idx}
+                      onClick={() => openMediaViewer({
+                        url: img,
+                        type: 'image',
+                        title: `โพสต์โดย ${post.author.name} (${idx + 1}/${post.images!.length})`,
+                        subtitle: `ต.${post.location.subdistrict} • ${post.time}`
+                      })}
+                      className={`relative bg-slate-900 cursor-pointer group ${post.images!.length === 1 ? 'max-h-52' : 'aspect-square'}`}
+                    >
+                      <img src={img} alt={`Post media ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      
+                      {isLastVisible && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="text-white text-xl font-extrabold">+{post.images!.length - 4}</span>
+                        </div>
+                      )}
+                      
+                      {!isLastVisible && (
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                          <span className="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-3 py-1 rounded-full border border-white/20">
+                            ดูรูปภาพ
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : post.image ? (
               <div 
                 onClick={() => openMediaViewer({
                   url: post.image!,
@@ -89,7 +125,7 @@ export function PostDetailCommentsModal({ post, onClose }: PostDetailCommentsMod
                   </span>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Micro Actions */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-[12px] font-bold text-slate-600">
