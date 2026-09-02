@@ -28,7 +28,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
       return;
     }
 
-    const filesArray = Array.from(files).slice(0, remainingSlots);
+    const filesArray = Array.from(files).slice(0, remainingSlots) as File[];
     setIsAttaching(true);
 
     let processedCount = 0;
