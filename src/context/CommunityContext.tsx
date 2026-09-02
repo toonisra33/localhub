@@ -66,7 +66,7 @@ interface CommunityContextType {
 
   // Posts State
   posts: Post[];
-  addPost: (content: string, category: string, images?: string[]) => void;
+  addPost: (content: string, category: string, images?: string[], customLocation?: Location) => void;
   toggleLikePost: (postId: string) => void;
   addComment: (postId: string, content: string) => void;
   deletePost: (postId: string) => void;
@@ -590,7 +590,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
   };
 
   // Posts Actions
-  const addPost = (content: string, category: string = 'ทั่วไป', images?: string[]) => {
+  const addPost = (content: string, category: string = 'ทั่วไป', images?: string[], customLocation?: Location) => {
     const newPost: Post = {
       id: `post_${Date.now()}`,
       author: {
@@ -600,7 +600,7 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       content,
       category,
       images,
-      location: { ...location, distance: 0.1 },
+      location: customLocation ? { ...customLocation, distance: 0.1 } : { ...location, distance: 0.1 },
       time: 'เมื่อสักครู่',
       likes: 0,
       comments: 0,

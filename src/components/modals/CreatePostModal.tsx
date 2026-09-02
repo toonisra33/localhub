@@ -14,6 +14,12 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
   const [isAttaching, setIsAttaching] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Check-in state
+  const [postLocation, setPostLocation] = useState(location);
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [checkinSubdistrict, setCheckinSubdistrict] = useState(location.subdistrict || '');
+  const [checkinDistrict, setCheckinDistrict] = useState(location.district || '');
+
   const categories = [
     'ข่าวสารชุมชน', 'ตามหาของ/สัตว์เลี้ยง', 'ร้านอร่อยชุมชน', 'ประกาศทั่วไป', 'ขอความช่วยเหลือ', 'พูดคุยแลกเปลี่ยน'
   ];
@@ -84,7 +90,7 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
       return;
     }
 
-    addPost(content.trim(), category, images.length > 0 ? images : undefined);
+    addPost(content.trim(), category, images.length > 0 ? images : undefined, postLocation);
     onClose();
   };
 
@@ -102,10 +108,51 @@ export function CreatePostModal({ onClose }: CreatePostModalProps) {
             />
             <div>
               <h2 className="text-[16px] font-extrabold text-slate-900 leading-tight">สร้างโพสต์ใหม่</h2>
-              <div className="flex items-center gap-1 text-[11.5px] text-slate-500 font-medium">
-                <MapPin size={11} className="text-emerald-600" />
-                <span>ต.{location.subdistrict} • {location.district}</span>
-              </div>
+              
+              {isEditingLocation ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    type="text"
+                    value={checkinSubdistrict}
+                    onChange={(e) => setCheckinSubdistrict(e.target.value)}
+                    placeholder="ตำบล"
+                    className="w-16 px-1.5 py-0.5 text-[11.5px] border border-slate-200 rounded focus:outline-none focus:border-emerald-500"
+                  />
+                  <input
+                    type="text"
+                    value={checkinDistrict}
+                    onChange={(e) => setCheckinDistrict(e.target.value)}
+                    placeholder="อำเภอ"
+                    className="w-16 px-1.5 py-0.5 text-[11.5px] border border-slate-200 rounded focus:outline-none focus:border-emerald-500"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setPostLocation(prev => ({ ...prev, subdistrict: checkinSubdistrict, district: checkinDistrict, isGps: false }));
+                      setIsEditingLocation(false);
+                    }}
+                    className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded"
+                  >
+                    บันทึก
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setIsEditingLocation(false)}
+                    className="text-slate-400 text-[10px] hover:text-slate-600"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  className="flex items-center gap-1 text-[11.5px] text-slate-500 font-medium cursor-pointer hover:text-emerald-600 transition-colors"
+                  onClick={() => setIsEditingLocation(true)}
+                >
+                  <MapPin size={11} className={postLocation.subdistrict !== location.subdistrict ? "text-emerald-600" : "text-slate-400"} />
+                  <span>ต.{postLocation.subdistrict} • {postLocation.district}</span>
+                  <span className="text-[10px] text-emerald-600 ml-1 font-bold bg-emerald-50 px-1 rounded">แก้ไข</span>
+                </div>
+              )}
             </div>
           </div>
 
